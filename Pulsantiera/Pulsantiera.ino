@@ -2,29 +2,29 @@
    ultima modifica fatta il 08/11/19
 
    da Alan Masutti
-   
+
    Descrizione:
-     programma che, caricato su una scheda ESP32 Wroom, si connetterà ad una rete WiFi creata da un'altra scheda 
+     programma che, caricato su una scheda ESP32 Wroom, si connetterà ad una rete WiFi creata da un'altra scheda
      uguale al fine di comunicare con essa i dati acquisiti dalla pusantiera fisica alla quale è collegata.
-     Il formato dei dati è: punti1;punti2;tempoDiGiogo;minutiDiGioco;secondiDiGioco;stato;index\r\n
+     Il formato dei dati è: punti1;punti2;tempoDiGiogo:minutiDiGioco;secondiDiGioco;stato;index\r\n
      Forma fisica del tabellone
   ____________________________________________________
- |      punti 1                             punti 2   |
- |        __    __                        __    __    |
- |      /__ / /__ /                     /__ / /__ /   |
- |     /__ / /__ /                     /__ / /__ /    |
- |                   tempo di gioco                   |
- |                        __                          |
- |                      /__ /                         |
- |                     /__ /                          |
- |                                                    |
- |               minuti         secondi               |
- |              __    __        __    __              |
- |            /__ / /__ /  .  /__ / /__ /             |
- |           /__ / /__ /  .  /__ / /__ /              |
- |____________________________________________________|
+  |      punti 1                             punti 2   |
+  |        __    __                        __    __    |
+  |      /__ / /__ /                     /__ / /__ /   |
+  |     /__ / /__ /                     /__ / /__ /    |
+  |                   tempo di gioco                   |
+  |                        __                          |
+  |                      /__ /                         |
+  |                     /__ /                          |
+  |                                                    |
+  |               minuti         secondi               |
+  |              __    __        __    __              |
+  |            /__ / /__ /  .  /__ / /__ /             |
+  |           /__ / /__ /  .  /__ / /__ /              |
+  |____________________________________________________|
 
-      
+
    Problemi riscontrati:
 
 
@@ -33,7 +33,7 @@
     alla pulsantiera fisica
 
     l'array 'nomi' contiene tutte le possibilità.
-    
+
 */
 
 #include <SPI.h>
@@ -45,12 +45,12 @@ char pass[] = "tabellone";
 
 int myIndex = 0; //indice dei comandi: contiene il numero del comando che ha inviato al Server
 int serverIndex = 0; //Indide dei comandi: contiene il numero del comando eseguito dal Server che viene ricevuto
-String buff[5]; //buffer comandi
+String buff[50]; //buffer comandi
 
 String splitString(String str, char sep, int index); //Funzione: splitta le stringhe
 
-int pins[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}; //NON UTILIZZATO PER ORA: 
-                                                                       //Sono i pin dei pulsanti fisici
+int pins[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}; //NON UTILIZZATO PER ORA:
+//Sono i pin dei pulsanti fisici
 
 int val[5] = { 0, 0, 0, 0, 0 };
 String attivo = "s";
@@ -71,6 +71,7 @@ String dataToServer;
 String data;
 
 bool events = false;
+bool connesso = false;
 
 void setup() {
   //mcp.begin(0);
@@ -128,16 +129,15 @@ void loop() {
     data = Serial.readStringUntil('\n');
   }
   if (data == "Sei Arduino?") {
+    connesso = true;
     Serial.print("Si sono Arduino!\n");
+    delay(100);
     data = "";
   }
 
   if (data != "") {
     data1 = splitString(data, '.', 0);
     data2 = splitString(data, '.', 1);
-    //    Serial.print("data: ");Serial.println(data);
-    //    Serial.print("data1: ");Serial.println(data1);
-    //    Serial.print("data2: ");Serial.println(data2);
     data = "";
   }
   for (byte i = 0; i <= 15; i++) state[i] = 0;
@@ -154,7 +154,7 @@ void loop() {
     if (WiFi.status() == WL_CONNECTED) {
       client.connect(server, 80);
     } else {
-      break;
+      return;
     }
   }
 
@@ -234,57 +234,51 @@ void loop() {
           }
         }
       }
+//      if (connesso) {
+//        Serial.print("serverIndex: "); Serial.println(serverIndex);
+//        Serial.print("myIndex: "); Serial.println(myIndex);
+//      }
       if (events) {
-        do {
-          reSend:
-          String toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "." + String(val[3]) + ":" + String(val[4]) + "." + String(attivo) + "." + String(myIndex) + "\r";
-          client.println(toSend);
-          Serial.println(toSend);
-          
-          byte i = 0;
-          do{
-            
-            delayMicroseconds(10);
-            Serial.println("delay");
-            i++;
-            if(i==500){
-              Serial.println("experied");
-              delay(200);
-              goto reSend;              
-            }
-          }while(client.available() <= 0);
-          Serial.println("byte disponibili");
-          Serial.print("client.available(): "); Serial.println(client.available());
-//          while(client.available() > 0){
-            dataToServer = client.readStringUntil('|');
-//          }
-          
-          Serial.print("dataToServer: ");Serial.println(dataToServer);
-         // }
-//          Serial.print("dataToServer1: "); Serial.println(dataToServer);
-          if (dataToServer != "") {
-            serverIndex = splitString(dataToServer, '.', 5).toInt();
-//            Serial.print("dataToServer2: "); Serial.println(dataToServer);
-//            Serial.print("dataToServer[5]: "); Serial.println(splitString(dataToServer, '.', 5));
-//            Serial.print("myIndex: "); Serial.println(myIndex);
-//            Serial.print("serverIndex: "); Serial.println(serverIndex);
-//            Serial.print("bool: "); Serial.println(String(myIndex != serverIndex));
-          }
-          delay(2000);
-        } while (myIndex != serverIndex && dataToServer != "");
-        if (dataToServer != "") {
-          myIndex = (myIndex + 1) % 5;
-          attivo = splitString(dataToServer, '.', 4);
-//          Serial.println("finish");
-          events = false;
+        myIndex = (myIndex + 1) % 50;
+        serverIndex = (serverIndex + 1) % 50;
+        String toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "." + String(val[3])
+                        + ":" + String(val[4]) + "."  + attivo + "." + String(myIndex) + "\r";
+        Serial.print("toSend: "); Serial.println(toSend);
+        buff[myIndex] = toSend;
+        events = !events;
+      }
+      if (connesso) {
+        if (buff[myIndex] != "") {
+          Serial.print("myIndex_buff[" + String(myIndex) + "]: "); Serial.println(buff[myIndex]);
+        }else{
+          Serial.println("myIndex_buff[" + String(myIndex) + "]: VUOTO");
+        }
+        if (buff[serverIndex] != ""){
+          Serial.print("serverIndex_buff[" + String(serverIndex) + "]: "); Serial.println(buff[serverIndex]);
+        }else{
+          Serial.println("serverIndex_buff[" + String(serverIndex) + "]: VUOTO");
         }
       }
-      //client.stop();
-      client.flush();
-      delay(500);
+      if (myIndex != serverIndex){
+        serverIndex = (serverIndex + 1) % 50;
+      }
+      if (buff[serverIndex] != "") {
+        if (connesso) Serial.print("sended: "); Serial.println(buff[serverIndex]);
+        client.print(buff[serverIndex]);
+      }
+      dataToServer = client.readStringUntil('\r');
+      if (dataToServer != "") {
+        if (connesso) Serial.print("dataToServer: "); Serial.println(dataToServer);
+        serverIndex = splitString(dataToServer, '.', 5).toInt();
+        attivo = splitString(dataToServer, '.', 4);
+      }
     }
   }
+  client.stop();
+  client.flush();
+  delay(2000);
 }
+
 
 String splitString(String str, char sep, int index) {
   /* str � la variabile di tipo String che contiene il valore da splittare

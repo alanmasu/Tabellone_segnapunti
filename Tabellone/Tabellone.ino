@@ -62,7 +62,7 @@ String state;
 //CONTROLLO ERRORI
 int myIndex = 0;
 int clientIndex = 0;
-String buff[5];
+String buff[50];
 
 //Routines
 void tik();
@@ -152,11 +152,36 @@ void loop() {
   if (data == "Sei Arduino?") {
     Serial.print("Si sono Arduino!\n");
   }
+  if (data == "?ip") {
+    IPAddress myIP = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(myIP);
+  }
+  if (WiFi.softAPIP() != ip) {
+    Serial.println("WiFi ERROR");
+    WiFi.softAPConfig(ip, gateway, subnet);
+    WiFi.softAP(ssid, pass);
+    server.begin();
+    IPAddress myIP = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(myIP);
+    Serial.println("HTTP server started");
+    delay(5000);
+  }
   if (client) {
     if (client.connected()) {
-      data = client.readStringUntil('\r');
+      Serial.println("client");
+      Serial.print("myIndex: "); Serial.println(myIndex);
+//      do {
+//        delayMicroseconds(100);
+//        Serial.print(".");     
+//      } while (client.available() <= 0);
+      Serial.print("\n");
+      data = client.readStringUntil(124);
+      Serial.print("data: "); Serial.println(data);
       if (data != "") {  //PROTOCOLLO: PT1.PT2.TP.MM:SS.ST.CI
-        //        Serial.print("data: "); Serial.println(data);
+        myIndex = (myIndex + 1) % 50;
+        Serial.print("data: "); Serial.println(data);
         val[0] = splitString(data, '.', 0).toInt();
         //        Serial.print("splitString: "); Serial.println(splitString(data, '.', 0).toInt());
         //        Serial.print("val[0]: "); Serial.println(val[0]);
@@ -178,23 +203,21 @@ void loop() {
               toSendSerial = toSendSerial + "." + String(val[c]);
             }
             Serial.println(toSendSerial);
-
-
-            myIndex = (myIndex + 1) % 5;
             pt1.write(val[0]);
             pt2.write(val[1]);
             c_m.write(val[3]);
             c_s.write(val[4]);
             tempo.write(val[2]);
           }
-          String toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "." + String(val[3]) + ":" + String(val[4]) + "." + String(state) + "." + String(myIndex) + String('|');
+          String toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2])
+                                + "." + String(val[3]) + ":" + String(val[4]) + "." + String(state) + "." + String(myIndex) + String('\r');
           //Serial.print("toSendClient: ");
-          //Serial.println(toSendClient);
+          //          Serial.println(toSendClient);
           client.println(toSendClient);
         }
       }
       client.stop();
-      client.flush();
+      //client.flush();
     }
   }
 }
