@@ -6,7 +6,7 @@
    Descrizione:
      programma che, caricato su una scheda ESP32 Wroom, si connetterà ad una rete WiFi creata da un'altra scheda
      uguale al fine di comunicare con essa i dati acquisiti dalla pusantiera fisica alla quale è collegata.
-     Il formato dei dati è: punti1;punti2;tempoDiGiogo:minutiDiGioco;secondiDiGioco;stato;index\r\n
+     Il formato dei dati è: punti1;punti2;tempoDiGiogo;minutiDiGioc:secondiDiGioco;index\r\n
      Forma fisica del tabellone
   ____________________________________________________
   |      punti 1                             punti 2   |
@@ -26,10 +26,10 @@
 
 
    Problemi riscontrati:
-
+     riferimeti circolare e indici in caso di reset, ma funziona lo stesso (parecchio instabile)
 
    Note:
-    inserzione comunicazione stato e gestione del timer
+    da inserire 
 
 */
 
@@ -39,6 +39,8 @@
 
 char ssid[] = "Tabellone";
 char pass[] = "tabellone";
+
+String timeStr = "MOD";
 
 int myIndex = 0; //indice dei comandi: contiene il numero del comando che ha inviato al Server
 int serverIndex = 0; //Indide dei comandi: contiene il numero del comando eseguito dal Server che viene ricevuto
@@ -50,7 +52,7 @@ int pins[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}; //NON UTI
 //Sono i pin dei pulsanti fisici
 
 int val[5] = { 0, 0, 0, 0, 0 };
-String attivo = "s";
+bool attivo = false;
 
 Adafruit_MCP23017 mcp;
 
@@ -67,9 +69,8 @@ WiFiClient client;
 String dataToServer;
 String data;
 
-bool events = false;
 bool connesso = false;
-
+bool debug1 = false;
 void setup() {
   //mcp.begin(0);
   Serial.begin(115200); // COM5
@@ -98,7 +99,7 @@ void setup() {
 void loop() {
   String data1;
   String data2;
-  String str="";
+
   if (WiFi.status() == WL_CONNECTED) {
     digitalWrite(2, HIGH);
     //Serial.print("WiFi.status(): "); Serial.println(WiFi.status());
@@ -138,6 +139,9 @@ void loop() {
     data2 = splitString(data, '.', 1);
     data = "";
   }
+  if (data1 == "debug1") {
+    debug1 = data2.toInt();
+  }
   for (byte i = 0; i <= 15; i++) state[i] = 0;
   /////// PER LA PROVA //////
   //il ciclo for va sostituito con : for(int i = 0; i <= 15; i++) state[i] = mcp.digitalRead(i);
@@ -175,7 +179,7 @@ void loop() {
               val[1] --;
               break;
             case 4:
-              if (attivo == "s") {
+              if (attivo == false) {/////////////////////////////////////////
                 val[0] = 0;
                 val[1] = 0;
               }
@@ -187,41 +191,49 @@ void loop() {
               val[2] --;
               break;
             case 7:
-              if (attivo == "s") {
+              if (attivo == false) {
                 val[2] = 0;
               }
               break;
             case 8:
-              val[3] ++;
+              val[3] = (val[3]+1)%60;
+              timeStr = "MOD";
               break;
             case 9:
-              val[3] --;
+              val[3] = (val[3]-1)%60;
+              timeStr = "MOD";
               break;
             case 10:
-              val[4] ++;
+              if(val[4] == 59){
+                val[3] = (val[3]+1)%60;
+              }
+              val[4] = (val[4]+1)%60;
+              timeStr = "MOD";
               break;
             case 11:
-              val[4] --;
+              if (val[4] == 0){
+                val[3] = (val[3]-1)%60;
+              }
+              val[4] = (val[4]-1)%60;
+              timeStr = "MOD";
               break;
             case 12:
-              if (attivo == "s") {
+              if (attivo == false) {//////////////////////////////////
                 val[3] = 0;
                 val[4] = 0;
               }
+              timeStr = "MOD";
               break;
-            case 13:
-              if (attivo == "s") {
-                attivo = "p";
-              }
+            case 13://P
+              timeStr = "PLAYED";
+              attivo = true;
               break;
-            case 14:
-              if (attivo == "p") {
-                attivo = "s";
-                str = "MOD";
-              }
+            case 14://S
+              timeStr = "STOPPED";
+              attivo = false;
               break;
             case 15:
-              if (attivo == "s") {
+              if (attivo == false) {//////////////////////////////////
                 for (byte i = 0; i <= 4; i++) {
                   val[i] = 0;
                 }
@@ -230,54 +242,97 @@ void loop() {
           }
         }
       }
-      Serial.print("val[0]: "); Serial.println(val[0]);
-      Serial.print("val[1]: "); Serial.println(val[1]);
-      Serial.print("val[2]: "); Serial.println(val[2]);
-      Serial.print("val[3]: "); Serial.println(val[3]);
-      Serial.print("val[4]: "); Serial.println(val[4]);
+      if (debug1) {
+        //        Serial.print("val[0]: "); Serial.println(val[0]);
+        //        Serial.print("val[1]: "); Serial.println(val[1]);
+        //        Serial.print("val[2]: "); Serial.println(val[2]);
+        //        Serial.print("val[3]: "); Serial.println(val[3]);
+        //        Serial.print("val[4]: "); Serial.println(val[4]);
+      }
       String toSend = "";
-      if( str == ""){
-        if ( attivo == "s") { // pt1.pt2.tg.min:sec.attivo.myIndex
-          toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "." + String(val[3])
-                          + ":" + String(val[4]) + "."  + attivo + "." + String(myIndex) + "\r";
-        } else if (attivo == "p") {// pt1.pt2.tg.PLAY.attivo.myIndex
-          toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + ".PLAY."  + attivo + "." + String(myIndex) + "\r";
+      if (debug1) {
+        Serial.println("----------");
+        Serial.print("timeStr: "); Serial.println(timeStr);
+        //delay(5000);
+      }
+      if(attivo == true){
+        if(timeStr == "PLAY"){
+          toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + ".PLAY."
+                 + String(myIndex) + "\r";
+        }else if(timeStr == "PLAYED"){
+          toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + ".PLAYED."
+                 + String(myIndex) + "\r";
+          timeStr = "PLAY";
+        }else{
+          toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + ".PLAY."
+                 + String(myIndex) + "\r";
         }
-      }else if (str == "MOD"){
-        toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + ".MOD."  + attivo + "." + String(myIndex) + "\r";
+        
+      }else{
+        if(timeStr == "MOD"){
+          toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "."
+                   + String(val[3]) + ":" + String(val[4]) + "." + String(myIndex) + "\r";
+          timeStr = "STOP";
+        }else if(timeStr == "STOP"){
+          toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "."
+                   + String(val[3]) + ":" + String(val[4]) + "." + String(myIndex) + "\r";
+        }else if(timeStr == "STOPPED"){
+          toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2])
+                   + ".STOPPED." + String(myIndex) + "\r";
+        }
       }
       buff[myIndex] = toSend;
-      Serial.print("toSend: "); Serial.println(toSend);
-
-      if (connesso) {
-        if (buff[myIndex] != "") {
-          Serial.print("myIndex_buff[" + String(myIndex) + "]: "); Serial.println(buff[myIndex]);
-        }else{
-          Serial.println("myIndex_buff[" + String(myIndex) + "]: VUOTO");
-        }
-        if (buff[serverIndex] != ""){
-          Serial.print("serverIndex_buff[" + String(serverIndex) + "]: "); Serial.println(buff[serverIndex]);
-        }else{
-          Serial.println("serverIndex_buff[" + String(serverIndex) + "]: VUOTO");
-        }
+      if(debug1){
+        Serial.print("toSend: "); Serial.println(toSend);
       }
+
+//      if (debug1) {
+//        if (buff[myIndex] != "") {
+//          Serial.print("myIndex_buff[" + String(myIndex) + "]: "); Serial.println(buff[myIndex]);
+//        } else {
+//          Serial.println("myIndex_buff[" + String(myIndex) + "]: VUOTO");
+//        }
+//        if (buff[serverIndex] != "") {
+//          Serial.print("serverIndex_buff[" + String(serverIndex) + "]: ");
+//          Serial.println(buff[serverIndex]);
+//        } else {
+//          Serial.println("serverIndex_buff[" + String(serverIndex) + "]: VUOTO");
+//          modificato = false;
+//        }
+//      }
       if (myIndex != serverIndex) {
-        serverIndex = (serverIndex + 1) % 50;
+        serverIndex = (serverIndex + 1) % 10;
+        if(debug1) Serial.println("error index");
       }
       if (buff[serverIndex] != "") {
-        if (connesso) Serial.println(buff[serverIndex]);//Serial.print("sended: ");
+        //        if (debug1) Serial.println(buff[serverIndex]);//Serial.print("sended: ");
         client.print(buff[serverIndex]);
-        myIndex = (myIndex + 1) % 50;
+        myIndex = (myIndex + 1) % 10;
+        if(debug1){
+          Serial.print("myIndex: "); Serial.println(myIndex);
+        }
+        
       }
       dataToServer = client.readStringUntil('\r');
       if (dataToServer != "") {
-        //        if (connesso) Serial.print("dataToServer: "); Serial.println(dataToServer);
-        serverIndex = splitString(dataToServer, '.', 5).toInt();
-        attivo = splitString(dataToServer, '.', 4);
-        if (attivo == "p") {
-          String timeStr = splitString(dataToServer, '.', 3);
-          val[3] = splitString(timeStr, ':', 0).toInt();
-          val[4] = splitString(timeStr, ':', 1).toInt();
+        //        if (debug1) Serial.print("dataToServer: "); Serial.println(dataToServer);        
+        
+        serverIndex = splitString(dataToServer, '.', 4).toInt();
+        String timeStrServer = splitString(dataToServer, '.', 3);
+        if (debug1) {
+          Serial.print("timeStrServer: "); Serial.println(timeStrServer);
+          //delay(5000);
+        }
+        if (timeStrServer == "STOPPED") {
+          attivo = false;
+          val[3] = 0;
+          val[4] = 0;
+          timeStr = "STOP";
+        } else {
+          if (myIndex == serverIndex) {
+            val[3] = splitString(timeStrServer, ':', 0).toInt();
+            val[4] = splitString(timeStrServer, ':', 1).toInt();
+          }
         }
       }
     }

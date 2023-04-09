@@ -44,6 +44,9 @@ Adafruit_MCP23017 mcp4;
 //Timer
 Ticker crono; //Timer tiker per gestione del cronometro
 Ticker microSec; //Timer tiker per gestione del cronometro
+String timeStrClient = "";
+String timeStr = "STOP";
+bool attivo = false;
 
 //WiFi
 char ssid[] = "Tabellone";
@@ -57,13 +60,14 @@ IPAddress subnet(255, 255, 255, 0);
 //Controllo
 int val[5] = {0, 0, 0, 0, 0};
 int valPrec[5] = {0, 0, 0, 0, 0};
-String state;
+
 
 //CONTROLLO ERRORI
 int myIndex = 0;
 int clientIndex = 0;
 String buff[50];
 //Seriale
+bool debug = false;
 bool connesso = false;
 String toSendSerial = "";
 String serialPrec = "";
@@ -146,7 +150,6 @@ void loop() {
   String data1;
   String data2;
   String data3;
-  bool modificato = false;
   WiFiClient client = server.available();
   while (Serial.available() > 0) {
     data = Serial.readStringUntil('\n');
@@ -156,7 +159,15 @@ void loop() {
     connesso = true;
     delay(250);
   }
-
+  if(data == "Disconesso"){
+    connesso = false;
+  }
+  if (data == "debug.1") {
+    debug = true;
+  }
+  if (data == "debug.0") {
+    debug = false;
+  }
   if (data == "?ip") {
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
@@ -173,34 +184,62 @@ void loop() {
     Serial.println("HTTP server started");
     delay(5000);
   }
-//  if (connesso == true && serialPrec != toSendSerial) {
-//    Serial.println(toSendSerial);
-//  }
+  //  if (connesso == true && serialPrec != toSendSerial) {
+  //    Serial.println(toSendSerial);
+  //  }
   if (client) {
     if (client.connected()) {
       data = client.readStringUntil('\r');
       if (data != "") {  //PROTOCOLLO: PT1.PT2.TP.MM:SS.ST.CI
-        Serial.print("data: ");Serial.println(data);
-        myIndex = (myIndex + 1) % 50;
+        if(debug){
+          Serial.print("data: ");Serial.println(data);
+        }
+        //myIndex = (myIndex + 1) % 10;
         val[0] = splitString(data, '.', 0).toInt();
         val[1] = splitString(data, '.', 1).toInt();
         val[2] = splitString(data, '.', 2).toInt();
-        String timeStr = splitString(data, '.', 3);
-        
-        if (timeStr != "PLAY" && timeStr != "") {
-          val[3] = splitString(timeStr, ':', 0).toInt();
-          val[4] = splitString(timeStr, ':', 1).toInt();
-          state = splitString(data, '.', 4);
-        }else if( timeStr == "MOD"){
-          state = splitString(data, '.', 4);
+        String timeStrClient = splitString(data, '.', 3);
+        if (debug) {
+          Serial.println("----------");
+          //Serial.print("data: "); Serial.println(data);
+          Serial.print("timeStrClient: "); Serial.println(timeStrClient);
+          //delay(5000);
         }
-        clientIndex = splitString(data, '.', 5).toInt();
-        //CONTROLLO DEL PACCHETTO
-        if (state == "p") {
-          crono.attach(1, tik);
-        } else if (state == "s") {
+        if (timeStrClient == "STOPPED") {
+          if(debug) Serial.println("crono detached");
           crono.detach();
+          timeStr = "STOP";
+          attivo = false;
+        } else if (timeStrClient == "PLAYED") {
+          if (attivo == false) {
+            if(debug) Serial.println("crono attached");
+            crono.attach(1, tik);
+            timeStr = "PLAY";
+            attivo = true;
+          }
+        } else if (timeStrClient != "PLAY"){
+          val[3] = splitString(timeStrClient, ':', 0).toInt();
+          val[4] = splitString(timeStrClient, ':', 1).toInt();
+          //          if(connesso){
+          //            Serial.print("val[3]: "); Serial.println(val[3]);
+          //            Serial.print("val[4]: "); Serial.println(val[4]);
+          //          }
         }
+        //          val[3] = splitString(timeStr, ':', 0).toInt();
+        //          val[4] = splitString(timeStr, ':', 1).toInt();
+        //          state = splitString(data, '.', 4);
+        //        }else if( timeStr == "MOD"){
+        //          state = splitString(data, '.', 4);
+        //        }else{
+        //          state = "p";
+        //        }
+        clientIndex = splitString(data, '.', 4).toInt();
+        //CONTROLLO DEL PACCHETTO
+        //        if (state == "p") {
+        //          crono.attach(1, tik);
+        //        } else if (state == "s") {
+        //          crono.detach();
+        //        }
         toSendSerial = String(val[0]);
         for (int i = 1; i < 5; i++) {
           toSendSerial = toSendSerial + "." + String(val[i]);
@@ -210,21 +249,48 @@ void loop() {
         c_m.write(val[3]);
         c_s.write(val[4]);
         tempo.write(val[2]);
-        String toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2])
-                              + "." + String(val[3]) + ":" + String(val[4]) + "." +state + "." + String(myIndex) + String('\r');
-        //        Serial.println(toSendClient);
-        Serial.print("toSendClient: ");Serial.println(toSendClient);
-        client.println(toSendClient);
-      }
 
-      client.stop(); 
+        String toSendClient;
+        if (debug) {
+          Serial.print("timeStr: "); Serial.println(timeStr);
+          //delay(5000);
+        }
+        if (attivo == false) {
+          if (timeStr == "STOP") {
+            toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "."
+                           + String(val[3]) + ":" + String(val[4]) + "." + String(myIndex) + String('\r');
+            if(debug) Serial.println("timeStr = STOP");
+          } else if (timeStr == "STOPPED") {
+            if(timeStrClient == "PLAY"){
+              toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2])
+                           + ".STOPPED." + String(myIndex) + String('\r');
+              if(debug) Serial.println("timeStr = STOPPED");
+            }else{
+               toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "."
+                           + String(val[3]) + ":" + String(val[4]) + "." + String(myIndex) + String('\r');
+            }
+            timeStr = "STOP";
+          }
+        } else {
+          toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "."
+                         + String(val[3]) + ":" + String(val[4]) + "." + String(myIndex) + String('\r');
+          if(debug) Serial.println("timeStr = ELSE");
+        }
+        if (debug){
+          Serial.print("toSendClient: "); Serial.println(toSendClient);
+          Serial.print("attivo: "); Serial.println(attivo);
+        }
+        client.println(toSendClient);
+        myIndex = clientIndex + 1;
+      }
+      client.stop();
       //client.flush();
     }
   }
-  if (connesso == true && toSendSerial != serialPrec) {
     Serial.println(toSendSerial);
-  }
-  serialPrec = toSendSerial;
+    delay(100);
+
+
 }
 String splitString(String str, char sep, int index) {
   /* str è la variabile di tipo String che contiene il valore da splittare
@@ -253,23 +319,28 @@ void tik() {
   } else {
     val[4]--;
   }
-  if (val[3] == 0 && val[4] == 0){
-    Serial.println("stop");
-//    finishTime();
-//    c_m.write(val[4]);
-//    c_s.write(val[3]);
-      crono.detach();
-      state = "s";
+  if (val[3] == 0 && val[4] == 0) {
+    if(debug) Serial.println("stop");
+    timeStr = "STOPPED";
+    
+    attivo = false;
+    
+    //    finishTime();
+    //    c_m.write(val[4]);
+    //    c_s.write(val[3]);
+    crono.detach();
+    
+    
   }
-  byte c = 0;
-  String SendSerial = String(val[0]);
-  for (int c = 1; c < 5; c++) {
-    SendSerial = SendSerial + "." + String(val[c]);
-  }
-  Serial.println(SendSerial);
+  //  byte c = 0;
+  //  String SendSerial = String(val[0]);
+  //  for (int c = 1; c < 5; c++) {
+  //    SendSerial = SendSerial + "." + String(val[c]);
+  //  }
+  //  Serial.println(SendSerial);
 }
 void finishTime() {
   //All'evento tempo finito esegui:
   crono.detach();
-  state = "s";
+
 }
