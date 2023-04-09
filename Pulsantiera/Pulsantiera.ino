@@ -1,5 +1,5 @@
 /*
-   ultima modifica fatta il 08/11/19
+   ultima modifica fatta il 18/11/19
 
    da Alan Masutti
 
@@ -29,10 +29,7 @@
 
 
    Note:
-    per il debug, ho creato una comunicazione seriale che grazie a componenti programmati in VBA si sostituiscono
-    alla pulsantiera fisica
-
-    l'array 'nomi' contiene tutte le possibilità.
+    inserzione comunicazione stato e gestione del timer
 
 */
 
@@ -101,6 +98,7 @@ void setup() {
 void loop() {
   String data1;
   String data2;
+  String str="";
   if (WiFi.status() == WL_CONNECTED) {
     digitalWrite(2, HIGH);
     //Serial.print("WiFi.status(): "); Serial.println(WiFi.status());
@@ -219,6 +217,7 @@ void loop() {
             case 14:
               if (attivo == "p") {
                 attivo = "s";
+                str = "MOD";
               }
               break;
             case 15:
@@ -231,24 +230,37 @@ void loop() {
           }
         }
       }
-
-      String toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "." + String(val[3])
-                      + ":" + String(val[4]) + "."  + attivo + "." + String(myIndex) + "\r";
+      Serial.print("val[0]: "); Serial.println(val[0]);
+      Serial.print("val[1]: "); Serial.println(val[1]);
+      Serial.print("val[2]: "); Serial.println(val[2]);
+      Serial.print("val[3]: "); Serial.println(val[3]);
+      Serial.print("val[4]: "); Serial.println(val[4]);
+      String toSend = "";
+      if( str == ""){
+        if ( attivo == "s") { // pt1.pt2.tg.min:sec.attivo.myIndex
+          toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "." + String(val[3])
+                          + ":" + String(val[4]) + "."  + attivo + "." + String(myIndex) + "\r";
+        } else if (attivo == "p") {// pt1.pt2.tg.PLAY.attivo.myIndex
+          toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + ".PLAY."  + attivo + "." + String(myIndex) + "\r";
+        }
+      }else if (str == "MOD"){
+        toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + ".MOD."  + attivo + "." + String(myIndex) + "\r";
+      }
       buff[myIndex] = toSend;
-      //      Serial.print("toSend: "); Serial.println(toSend);
+      Serial.print("toSend: "); Serial.println(toSend);
 
-      //      if (connesso) {
-      //        if (buff[myIndex] != "") {
-      //          Serial.print("myIndex_buff[" + String(myIndex) + "]: "); Serial.println(buff[myIndex]);
-      //        }else{
-      //          Serial.println("myIndex_buff[" + String(myIndex) + "]: VUOTO");
-      //        }
-      //        if (buff[serverIndex] != ""){
-      //          Serial.print("serverIndex_buff[" + String(serverIndex) + "]: "); Serial.println(buff[serverIndex]);
-      //        }else{
-      //          Serial.println("serverIndex_buff[" + String(serverIndex) + "]: VUOTO");
-      //        }
-      //      }
+      if (connesso) {
+        if (buff[myIndex] != "") {
+          Serial.print("myIndex_buff[" + String(myIndex) + "]: "); Serial.println(buff[myIndex]);
+        }else{
+          Serial.println("myIndex_buff[" + String(myIndex) + "]: VUOTO");
+        }
+        if (buff[serverIndex] != ""){
+          Serial.print("serverIndex_buff[" + String(serverIndex) + "]: "); Serial.println(buff[serverIndex]);
+        }else{
+          Serial.println("serverIndex_buff[" + String(serverIndex) + "]: VUOTO");
+        }
+      }
       if (myIndex != serverIndex) {
         serverIndex = (serverIndex + 1) % 50;
       }
@@ -262,7 +274,7 @@ void loop() {
         //        if (connesso) Serial.print("dataToServer: "); Serial.println(dataToServer);
         serverIndex = splitString(dataToServer, '.', 5).toInt();
         attivo = splitString(dataToServer, '.', 4);
-        if(attivo == "p"){
+        if (attivo == "p") {
           String timeStr = splitString(dataToServer, '.', 3);
           val[3] = splitString(timeStr, ':', 0).toInt();
           val[4] = splitString(timeStr, ':', 1).toInt();
@@ -272,7 +284,7 @@ void loop() {
   }
   client.stop();
   client.flush();
-  delay(2000);
+  delay(750);
 }
 
 

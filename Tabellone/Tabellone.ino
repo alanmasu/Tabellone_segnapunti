@@ -1,15 +1,15 @@
 /*
-   ultima modifica fatta il 17/10/19
+   ultima modifica fatta il 18/11/19
 
    da: Alan Masutti
 
    Problemi riscontrati:
 
 
-   Note:
-
+   Note: inserzione comunicazione stato e gestione del timer
 
 */
+
 #include <WiFi.h>
 #include <Ticker.h>
 #include <SPI.h>
@@ -63,13 +63,16 @@ String state;
 int myIndex = 0;
 int clientIndex = 0;
 String buff[50];
+//Seriale
+bool connesso = false;
+String toSendSerial = "";
+String serialPrec = "";
 
 //Routines
 void tik();
 void finishTime();
 String splitString(String str, char sep, int index);
 bool timeFinished = false;
-
 
 void setup() {
   Serial.begin(115200); //COM5
@@ -138,7 +141,6 @@ void setup() {
   tempo.clear();
 }
 
-
 void loop() {
   String data;
   String data1;
@@ -151,7 +153,10 @@ void loop() {
   }
   if (data == "Sei Arduino?") {
     Serial.print("Si sono Arduino!\n");
+    connesso = true;
+    delay(250);
   }
+
   if (data == "?ip") {
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
@@ -168,48 +173,58 @@ void loop() {
     Serial.println("HTTP server started");
     delay(5000);
   }
+//  if (connesso == true && serialPrec != toSendSerial) {
+//    Serial.println(toSendSerial);
+//  }
   if (client) {
     if (client.connected()) {
       data = client.readStringUntil('\r');
       if (data != "") {  //PROTOCOLLO: PT1.PT2.TP.MM:SS.ST.CI
+        Serial.print("data: ");Serial.println(data);
         myIndex = (myIndex + 1) % 50;
         val[0] = splitString(data, '.', 0).toInt();
         val[1] = splitString(data, '.', 1).toInt();
         val[2] = splitString(data, '.', 2).toInt();
         String timeStr = splitString(data, '.', 3);
-        state = splitString(data, '.', 4);
-        if(state == "s"){
+        
+        if (timeStr != "PLAY" && timeStr != "") {
           val[3] = splitString(timeStr, ':', 0).toInt();
           val[4] = splitString(timeStr, ':', 1).toInt();
+          state = splitString(data, '.', 4);
+        }else if( timeStr == "MOD"){
+          state = splitString(data, '.', 4);
         }
         clientIndex = splitString(data, '.', 5).toInt();
         //CONTROLLO DEL PACCHETTO
-        if(state == "p"){
+        if (state == "p") {
           crono.attach(1, tik);
-        }else if (state == "p"){
+        } else if (state == "s") {
           crono.detach();
         }
-        for (int i = 0; i < 5 ; i++) {
-          String toSendSerial = String(val[0]);
-          for (int c = 1; c < 5; c++) {
-            toSendSerial = toSendSerial + "." + String(val[c]);
-          }
-          Serial.println(toSendSerial);
-          pt1.write(val[0]);
-          pt2.write(val[1]);
-          c_m.write(val[3]);
-          c_s.write(val[4]);
-          tempo.write(val[2]);
-          String toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2])
-                                + "." + String(val[3]) + ":" + String(val[4]) + "." + String(state) + "." + String(myIndex) + String('\r');
-          client.println(toSendClient);
+        toSendSerial = String(val[0]);
+        for (int i = 1; i < 5; i++) {
+          toSendSerial = toSendSerial + "." + String(val[i]);
         }
+        pt1.write(val[0]);
+        pt2.write(val[1]);
+        c_m.write(val[3]);
+        c_s.write(val[4]);
+        tempo.write(val[2]);
+        String toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2])
+                              + "." + String(val[3]) + ":" + String(val[4]) + "." +state + "." + String(myIndex) + String('\r');
+        //        Serial.println(toSendClient);
+        Serial.print("toSendClient: ");Serial.println(toSendClient);
+        client.println(toSendClient);
       }
-      
-      client.stop();
+
+      client.stop(); 
       //client.flush();
     }
   }
+  if (connesso == true && toSendSerial != serialPrec) {
+    Serial.println(toSendSerial);
+  }
+  serialPrec = toSendSerial;
 }
 String splitString(String str, char sep, int index) {
   /* str è la variabile di tipo String che contiene il valore da splittare
@@ -238,15 +253,20 @@ void tik() {
   } else {
     val[4]--;
   }
-  byte c = 0;
-  String toSendSerial = String(val[0]);
-  for (int c = 1; c < 5; c++) {
-    toSendSerial = toSendSerial + "." + String(val[c]);
+  if (val[3] == 0 && val[4] == 0){
+    Serial.println("stop");
+//    finishTime();
+//    c_m.write(val[4]);
+//    c_s.write(val[3]);
+      crono.detach();
+      state = "s";
   }
-  Serial.println(toSendSerial);
-  if (val[3] == 0 && val[4] == 0) finishTime();
-  c_m.write(val[4]);
-  c_s.write(val[3]);
+  byte c = 0;
+  String SendSerial = String(val[0]);
+  for (int c = 1; c < 5; c++) {
+    SendSerial = SendSerial + "." + String(val[c]);
+  }
+  Serial.println(SendSerial);
 }
 void finishTime() {
   //All'evento tempo finito esegui:
