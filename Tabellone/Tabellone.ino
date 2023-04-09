@@ -7,6 +7,8 @@
 
 
    Note: inserzione comunicazione stato e gestione del timer
+   e powerFail
+    PowerFail da completare
 
 */
 
@@ -43,7 +45,7 @@ Adafruit_MCP23017 mcp4;
 
 //Timer
 Ticker crono; //Timer tiker per gestione del cronometro
-Ticker microSec; //Timer tiker per gestione del cronometro
+Ticker powerDetector; //Timer tiker per campionamento presenza tensione
 String timeStrClient = "";
 String timeStr = "STOP";
 bool attivo = false;

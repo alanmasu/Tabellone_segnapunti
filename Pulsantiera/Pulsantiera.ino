@@ -1,5 +1,5 @@
 /*
-   ultima modifica fatta il 18/11/19
+   ultima modifica fatta il 21/11/19
 
    da Alan Masutti
 
@@ -29,28 +29,45 @@
      riferimeti circolare e indici in caso di reset, ma funziona lo stesso (parecchio instabile)
 
    Note:
-    da inserire 
+    Prova di inserimento della EEPROM, e powerFail
+    PowerFail da completare
+   Note EEPROM:
+   Address Parameter
+      0     pt1
+      1     pt2
+      2     t_g
+      3     min
+      4     sec
+      5     state
+      6     timeStr
+      7     myIndex
+      8     serverIndex
 
 */
 
 #include <SPI.h>
 #include <WiFi.h>
 #include <Adafruit_MCP23017.h>
+#include <EEPROM.h>
+#include <Ticker.h>
 
-char ssid[] = "Tabellone";
-char pass[] = "tabellone";
-
-String timeStr = "MOD";
-
+//Gestione errori
 int myIndex = 0; //indice dei comandi: contiene il numero del comando che ha inviato al Server
 int serverIndex = 0; //Indide dei comandi: contiene il numero del comando eseguito dal Server che viene ricevuto
-String buff[50]; //buffer comandi
+String buff[10]; //buffer comandi
 
+//Powerfail
+#define EEPROM_S = 9
+Ticker powerDetection;
+
+//Funzioni
 String splitString(String str, char sep, int index); //Funzione: splitta le stringhe
 
+//Costanti pin
 int pins[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}; //NON UTILIZZATO PER ORA:
 //Sono i pin dei pulsanti fisici
 
+//Valori
 int val[5] = { 0, 0, 0, 0, 0 };
 bool attivo = false;
 
@@ -60,23 +77,35 @@ Adafruit_MCP23017 mcp;
 String nomi[16] = { "pt1_p", "pt1_m", "pt2_p", "pt2_m", "pt_r", "t_p", "t_m", "t_r", "min_p", "min_m", "sec_p", "sec_m", "sec_r", "p", "s", "r" };
 //\per la prova
 
+//WiFi
 IPAddress server(192, 168, 0, 80); //indirizzo del Server
 IPAddress ip(192, 168, 0, 81);
 IPAddress gateway(192, 168, 0, 80);
 IPAddress subnet(255, 255, 255, 0);
 WiFiClient client;
+char ssid[] = "Tabellone";
+char pass[] = "tabellone";
 
+//Comuniction
 String dataToServer;
 String data;
+String timeStr = "MOD";
 
+//Serial comunication
 bool connesso = false;
 bool debug1 = false;
+
+
 void setup() {
-  //mcp.begin(0);
+  //Ingressi
+  mcp.begin(0);
+  //Seriale
   Serial.begin(115200); // COM5
   Serial.println("");
+  //Pin remotaggio
   pinMode(2, OUTPUT);
   pinMode(1, INPUT_PULLUP);
+  //Connessione WiFi
   while (WiFi.status() != WL_CONNECTED) {
     digitalWrite(2, LOW);
     WiFi.config(ip, gateway, subnet);
@@ -94,6 +123,20 @@ void setup() {
   Serial.println(ssid);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+
+  //PowerFail
+  powerDetector.attach(0.05, pwISR);
+  //EEPROM  
+  EEPROM.begin(EEPROM_S);
+  
+  //Ripristino dati dell'ultima sessione
+  for(byte i=0; i<5;i++){
+    val[i]=EEPROM.read(i);
+  }
+  state = bool(EEPROM.readInt(5));
+  timeStr = EEPROM.readString(6);
+  myIndex = EEPROM.readInt(7);
+  serverIndex = EEPROM.readInt(8);
 }
 
 void loop() {
@@ -250,7 +293,7 @@ void loop() {
         //        Serial.print("val[4]: "); Serial.println(val[4]);
       }
       String toSend = "";
-      if (debug1) {
+      if (connesso) {
         Serial.println("----------");
         Serial.print("timeStr: "); Serial.println(timeStr);
         //delay(5000);
@@ -282,7 +325,7 @@ void loop() {
         }
       }
       buff[myIndex] = toSend;
-      if(debug1){
+      if(connesso){
         Serial.print("toSend: "); Serial.println(toSend);
       }
 
@@ -302,13 +345,13 @@ void loop() {
 //      }
       if (myIndex != serverIndex) {
         serverIndex = (serverIndex + 1) % 10;
-        if(debug1) Serial.println("error index");
+        if(connesso) Serial.println("error index");
       }
       if (buff[serverIndex] != "") {
         //        if (debug1) Serial.println(buff[serverIndex]);//Serial.print("sended: ");
         client.print(buff[serverIndex]);
         myIndex = (myIndex + 1) % 10;
-        if(debug1){
+        if(connesso){
           Serial.print("myIndex: "); Serial.println(myIndex);
         }
         
@@ -319,7 +362,7 @@ void loop() {
         
         serverIndex = splitString(dataToServer, '.', 4).toInt();
         String timeStrServer = splitString(dataToServer, '.', 3);
-        if (debug1) {
+        if (connesso) {
           Serial.print("timeStrServer: "); Serial.println(timeStrServer);
           //delay(5000);
         }
