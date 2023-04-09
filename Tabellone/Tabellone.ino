@@ -7,8 +7,6 @@
 
 
    Note: inserzione comunicazione stato e gestione del timer
-   e powerFail
-    PowerFail da completare
 
 */
 
@@ -45,7 +43,7 @@ Adafruit_MCP23017 mcp4;
 
 //Timer
 Ticker crono; //Timer tiker per gestione del cronometro
-Ticker powerDetector; //Timer tiker per campionamento presenza tensione
+Ticker microSec; //Timer tiker per gestione del cronometro
 String timeStrClient = "";
 String timeStr = "STOP";
 bool attivo = false;
@@ -289,10 +287,10 @@ void loop() {
       //client.flush();
     }
   }
-    Serial.println(toSendSerial);
-    delay(100);
-
-
+    if(connesso){
+      Serial.println(toSendSerial);
+    }
+    //delay(0);
 }
 String splitString(String str, char sep, int index) {
   /* str è la variabile di tipo String che contiene il valore da splittare
