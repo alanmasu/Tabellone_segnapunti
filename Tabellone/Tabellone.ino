@@ -170,52 +170,42 @@ void loop() {
   }
   if (client) {
     if (client.connected()) {
-      Serial.println("client");
-      Serial.print("myIndex: "); Serial.println(myIndex);
-//      do {
-//        delayMicroseconds(100);
-//        Serial.print(".");     
-//      } while (client.available() <= 0);
-      Serial.print("\n");
-      data = client.readStringUntil(124);
-      Serial.print("data: "); Serial.println(data);
+      data = client.readStringUntil('\r');
       if (data != "") {  //PROTOCOLLO: PT1.PT2.TP.MM:SS.ST.CI
         myIndex = (myIndex + 1) % 50;
-        Serial.print("data: "); Serial.println(data);
         val[0] = splitString(data, '.', 0).toInt();
-        //        Serial.print("splitString: "); Serial.println(splitString(data, '.', 0).toInt());
-        //        Serial.print("val[0]: "); Serial.println(val[0]);
         val[1] = splitString(data, '.', 1).toInt();
         val[2] = splitString(data, '.', 2).toInt();
         String timeStr = splitString(data, '.', 3);
-        val[3] = splitString(timeStr, ':', 0).toInt();
-        val[4] = splitString(timeStr, ':', 1).toInt();
         state = splitString(data, '.', 4);
+        if(state == "s"){
+          val[3] = splitString(timeStr, ':', 0).toInt();
+          val[4] = splitString(timeStr, ':', 1).toInt();
+        }
         clientIndex = splitString(data, '.', 5).toInt();
         //CONTROLLO DEL PACCHETTO
+        if(state == "p"){
+          crono.attach(1, tik);
+        }else if (state == "p"){
+          crono.detach();
+        }
         for (int i = 0; i < 5 ; i++) {
-          //          Serial.print("val["+String(i)+"]: "); Serial.println(val[i]);
-          //          Serial.print("valPrec["+String(i)+"]: "); Serial.println(valPrec[i]);
-          if (val[i] != valPrec[i]) {
-            //            Serial.print("if: ");
-            String toSendSerial = String(val[0]);
-            for (int c = 1; c < 5; c++) {
-              toSendSerial = toSendSerial + "." + String(val[c]);
-            }
-            Serial.println(toSendSerial);
-            pt1.write(val[0]);
-            pt2.write(val[1]);
-            c_m.write(val[3]);
-            c_s.write(val[4]);
-            tempo.write(val[2]);
+          String toSendSerial = String(val[0]);
+          for (int c = 1; c < 5; c++) {
+            toSendSerial = toSendSerial + "." + String(val[c]);
           }
+          Serial.println(toSendSerial);
+          pt1.write(val[0]);
+          pt2.write(val[1]);
+          c_m.write(val[3]);
+          c_s.write(val[4]);
+          tempo.write(val[2]);
           String toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2])
                                 + "." + String(val[3]) + ":" + String(val[4]) + "." + String(state) + "." + String(myIndex) + String('\r');
-          //Serial.print("toSendClient: ");
-          //          Serial.println(toSendClient);
           client.println(toSendClient);
         }
       }
+      
       client.stop();
       //client.flush();
     }
@@ -245,11 +235,15 @@ void tik() {
   if (val[4] == 0) {
     val[4] = 59;
     val[3] --;
-    Serial.println("crono." + String(val[3]) + "." + String(val[4]));
   } else {
     val[4]--;
-    Serial.println("crono_sec.write." + String(val[4]));
   }
+  byte c = 0;
+  String toSendSerial = String(val[0]);
+  for (int c = 1; c < 5; c++) {
+    toSendSerial = toSendSerial + "." + String(val[c]);
+  }
+  Serial.println(toSendSerial);
   if (val[3] == 0 && val[4] == 0) finishTime();
   c_m.write(val[4]);
   c_s.write(val[3]);

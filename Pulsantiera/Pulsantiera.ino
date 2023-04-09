@@ -161,116 +161,112 @@ void loop() {
   //Serial.println("Conncetion sucessful");
   if (client) {
     if (client.connected()) {
-      if (events == false) {
-        for (int i = 0; i <= 15; i++) {
-          if (state[i] == 1) {
-            events = true;
-            switch (i) {
-              case 0:
-                val[0] ++;
-                break;
-              case 1:
-                val[0] --;
-                break;
-              case 2:
-                val[1] ++;
-                break;
-              case 3:
-                val[1] --;
-                break;
-              case 4:
-                if (attivo == "s") {
-                  val[0] = 0;
-                  val[1] = 0;
+      for (int i = 0; i <= 15; i++) {
+        if (state[i] == 1) {
+          switch (i) {
+            case 0:
+              val[0] ++;
+              break;
+            case 1:
+              val[0] --;
+              break;
+            case 2:
+              val[1] ++;
+              break;
+            case 3:
+              val[1] --;
+              break;
+            case 4:
+              if (attivo == "s") {
+                val[0] = 0;
+                val[1] = 0;
+              }
+              break;
+            case 5:
+              val[2] ++;
+              break;
+            case 6:
+              val[2] --;
+              break;
+            case 7:
+              if (attivo == "s") {
+                val[2] = 0;
+              }
+              break;
+            case 8:
+              val[3] ++;
+              break;
+            case 9:
+              val[3] --;
+              break;
+            case 10:
+              val[4] ++;
+              break;
+            case 11:
+              val[4] --;
+              break;
+            case 12:
+              if (attivo == "s") {
+                val[3] = 0;
+                val[4] = 0;
+              }
+              break;
+            case 13:
+              if (attivo == "s") {
+                attivo = "p";
+              }
+              break;
+            case 14:
+              if (attivo == "p") {
+                attivo = "s";
+              }
+              break;
+            case 15:
+              if (attivo == "s") {
+                for (byte i = 0; i <= 4; i++) {
+                  val[i] = 0;
                 }
-                break;
-              case 5:
-                val[2] ++;
-                break;
-              case 6:
-                val[2] --;
-                break;
-              case 7:
-                if (attivo == "s") {
-                  val[2] = 0;
-                }
-                break;
-              case 8:
-                val[3] ++;
-                break;
-              case 9:
-                val[3] --;
-                break;
-              case 10:
-                val[4] ++;
-                break;
-              case 11:
-                val[4] --;
-                break;
-              case 12:
-                if (attivo == "s") {
-                  val[3] = 0;
-                  val[4] = 0;
-                }
-                break;
-              case 13:
-                if (attivo == "s") {
-                  attivo = "p";
-                }
-                break;
-              case 14:
-                if (attivo == "p") {
-                  attivo = "s";
-                }
-                break;
-              case 15:
-                if (attivo == "s") {
-                  for (byte i = 0; i <= 4; i++) {
-                    val[i] = 0;
-                  }
-                }
-                break;
-            }
+              }
+              break;
           }
         }
       }
-//      if (connesso) {
-//        Serial.print("serverIndex: "); Serial.println(serverIndex);
-//        Serial.print("myIndex: "); Serial.println(myIndex);
-//      }
-      if (events) {
-        myIndex = (myIndex + 1) % 50;
-        serverIndex = (serverIndex + 1) % 50;
-        String toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "." + String(val[3])
-                        + ":" + String(val[4]) + "."  + attivo + "." + String(myIndex) + "\r";
-        Serial.print("toSend: "); Serial.println(toSend);
-        buff[myIndex] = toSend;
-        events = !events;
-      }
-      if (connesso) {
-        if (buff[myIndex] != "") {
-          Serial.print("myIndex_buff[" + String(myIndex) + "]: "); Serial.println(buff[myIndex]);
-        }else{
-          Serial.println("myIndex_buff[" + String(myIndex) + "]: VUOTO");
-        }
-        if (buff[serverIndex] != ""){
-          Serial.print("serverIndex_buff[" + String(serverIndex) + "]: "); Serial.println(buff[serverIndex]);
-        }else{
-          Serial.println("serverIndex_buff[" + String(serverIndex) + "]: VUOTO");
-        }
-      }
-      if (myIndex != serverIndex){
+
+      String toSend = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "." + String(val[3])
+                      + ":" + String(val[4]) + "."  + attivo + "." + String(myIndex) + "\r";
+      buff[myIndex] = toSend;
+      //      Serial.print("toSend: "); Serial.println(toSend);
+
+      //      if (connesso) {
+      //        if (buff[myIndex] != "") {
+      //          Serial.print("myIndex_buff[" + String(myIndex) + "]: "); Serial.println(buff[myIndex]);
+      //        }else{
+      //          Serial.println("myIndex_buff[" + String(myIndex) + "]: VUOTO");
+      //        }
+      //        if (buff[serverIndex] != ""){
+      //          Serial.print("serverIndex_buff[" + String(serverIndex) + "]: "); Serial.println(buff[serverIndex]);
+      //        }else{
+      //          Serial.println("serverIndex_buff[" + String(serverIndex) + "]: VUOTO");
+      //        }
+      //      }
+      if (myIndex != serverIndex) {
         serverIndex = (serverIndex + 1) % 50;
       }
       if (buff[serverIndex] != "") {
-        if (connesso) Serial.print("sended: "); Serial.println(buff[serverIndex]);
+        if (connesso) Serial.println(buff[serverIndex]);//Serial.print("sended: ");
         client.print(buff[serverIndex]);
+        myIndex = (myIndex + 1) % 50;
       }
       dataToServer = client.readStringUntil('\r');
       if (dataToServer != "") {
-        if (connesso) Serial.print("dataToServer: "); Serial.println(dataToServer);
+        //        if (connesso) Serial.print("dataToServer: "); Serial.println(dataToServer);
         serverIndex = splitString(dataToServer, '.', 5).toInt();
         attivo = splitString(dataToServer, '.', 4);
+        if(attivo == "p"){
+          String timeStr = splitString(dataToServer, '.', 3);
+          val[3] = splitString(timeStr, ':', 0).toInt();
+          val[4] = splitString(timeStr, ':', 1).toInt();
+        }
       }
     }
   }
@@ -278,6 +274,7 @@ void loop() {
   client.flush();
   delay(2000);
 }
+
 
 
 String splitString(String str, char sep, int index) {
