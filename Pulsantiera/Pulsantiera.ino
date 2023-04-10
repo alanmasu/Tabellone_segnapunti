@@ -138,27 +138,7 @@ void loop() {
   byte state[16];
 
   //Verifica della connessione WiFi
-  if (WiFi.status() == WL_CONNECTED) {
-    digitalWrite(2, HIGH);
-  }
-  else {
-    Serial.println("Disconnect!");
-    digitalWrite(2, LOW);
-    WiFi.disconnect();
-    while (WiFi.status() != WL_CONNECTED) {
-      Serial.println(" Try to reconect");
-      WiFi.begin(ssid, pass);
-      for (int i = 0; i <= 10; i++) {
-        Serial.print(".");
-        delay(500);
-      }
-      Serial.println("");
-    }
-    Serial.print("Connected to ");
-    Serial.println(ssid);
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-  }
+  checkWiFi();
 
   //Lettura della seriale
   while (Serial.available() > 0) {
@@ -215,82 +195,7 @@ void loop() {
   //Operazioni
   if (client) {
     if (client.connected()) {
-      for (int i = 0; i <= 15; i++) {
-        if (state[i] == 1) {
-          if (shift == false) {
-            switch (i) {
-              case 0:
-                val[0] ++;
-                break;
-              case 1:
-                val[0] --;
-                break;
-              case 2:
-                val[1] ++;
-                break;
-              case 3:
-                val[1] --;
-                break;
-              case 4:
-                if (stato == false) {
-                  val[0] = 0;
-                  val[1] = 0;
-                }
-                break;
-              case 5:
-                val[2] ++;
-                break;
-              case 6:
-                val[2] --;
-                break;
-              case 7:
-                if (stato == false) {
-                  val[2] = 0;
-                }
-                break;
-              case 8:
-                val[3] = (val[3] + 1) % 60;
-                break;
-              case 9:
-                val[3] = (val[3] - 1) % 60;
-                break;
-              case 10:
-                if (val[4] == 59) {
-                  val[3] = (val[3] + 1) % 60;
-                }
-                val[4] = (val[4] + 1) % 60;
-                break;
-              case 11:
-                if (val[4] == 0) {
-                  val[3] = (val[3] - 1) % 60;
-                }
-                val[4] = (val[4] - 1) % 60;
-                break;
-              case 12:
-                if (stato == false) {
-                  val[3] = 0;
-                  val[4] = 0;
-                }
-                break;
-              case 13://P
-                stato = true;
-                break;
-              case 14://S
-                stato = false;
-                break;
-              case 15:
-                if (stato == false) {
-                  for (byte i = 0; i <= 4; i++) {
-                    val[i] = 0;
-                  }
-                }
-                break;
-            }
-          } else {
-
-          }
-        }
-      }
+      decomp();
       toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "."
                      + String(val[3]) + "." + String(val[4]);
       if (myIndex == serverIndex) {
@@ -303,7 +208,7 @@ void loop() {
           myIndex = (myIndex + 1) % 10;
           client.print(buff[myIndex] + + "." + String(myIndex) + String('\r'));
           if (debug1 == true) {
-            Serial.print("client.print1(): "); Serial.println(buff[myIndex]+ "." + String(myIndex) + String('\r'));
+            Serial.print("client.print1(): "); Serial.println(buff[myIndex] + "." + String(myIndex) + String('\r'));
             Serial.println("uguali");
             Serial.print("serverIndex: "); Serial.println(serverIndex);
             Serial.print("myIndex: "); Serial.println(myIndex);
@@ -312,14 +217,14 @@ void loop() {
       } else {
         if (debug1) {
           //          Serial.print("toSend: "); Serial.println(toSend);
-          Serial.print("buff[Server]: "); Serial.println(buff[serverIndex]+ "." + String(myIndex) + String('\r'));
+          Serial.print("buff[Server]: "); Serial.println(buff[serverIndex] + "." + String(myIndex) + String('\r'));
           Serial.println("diversi");
           Serial.print("serverIndex: "); Serial.println(serverIndex);
           Serial.print("myIndex: "); Serial.println(myIndex);
         }
         client.print(buff[serverIndex] + "." + String(myIndex) + String('\r'));
         if (debug1 == true) {
-          Serial.print("client.print2(): "); Serial.println(buff[serverIndex]+ "." + String(myIndex) + String('\r'));
+          Serial.print("client.print2(): "); Serial.println(buff[serverIndex] + "." + String(myIndex) + String('\r'));
         }
 
       }
@@ -335,7 +240,7 @@ void loop() {
         serverIndex = splitString(dataToServer, '.', 5).toInt();
         if (debug1) {
           Serial.print("dataToServer: "); Serial.println(dataToServer);
-//          Serial.print("buff[my]: "); Serial.println(buff[myIndex]);
+          //          Serial.print("buff[my]: "); Serial.println(buff[myIndex]);
           //          Serial.print("buff[my]: "); Serial.println(buff[myIndex]);
           //          Serial.print("buff[my]: "); Serial.println(buff[myIndex]);
         }
@@ -369,72 +274,109 @@ String splitString(String str, char sep, int index) {
   return found > index ? str.substring(strIdx[0], strIdx[1]) : "";
 }
 
+void checkWiFi() {
+  if (WiFi.status() == WL_CONNECTED) {
+    digitalWrite(2, HIGH);
+  }
+  else {
+    Serial.println("Disconnect!");
+    digitalWrite(2, LOW);
+    WiFi.disconnect();
+    while (WiFi.status() != WL_CONNECTED) {
+      Serial.println(" Try to reconect");
+      WiFi.begin(ssid, pass);
+      for (int i = 0; i <= 10; i++) {
+        Serial.print(".");
+        delay(500);
+      }
+      Serial.println("");
+    }
+    Serial.print("Connected to ");
+    Serial.println(ssid);
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+  }
+}
 
-//switch (i) {
-//              case 0:
-//                val[0] ++;
-//                break;
-//              case 1:
-//                val[0] --;
-//                break;
-//              case 2:
-//                val[1] ++;
-//                break;
-//              case 3:
-//                val[1] --;
-//                break;
-//              case 4:
-//                if (stato == false) {
-//                  val[0] = 0;
-//                  val[1] = 0;
-//                }
-//                break;
-//              case 5:
-//                val[2] ++;
-//                break;
-//              case 6:
-//                val[2] --;
-//                break;
-//              case 7:
-//                if (stato == false) {
-//                  val[2] = 0;
-//                }
-//                break;
-//              case 8:
-//                val[3] = (val[3] + 1) % 60;
-//                break;
-//              case 9:
-//                val[3] = (val[3] - 1) % 60;
-//                break;
-//              case 10:
-//                if (val[4] == 59) {
-//                  val[3] = (val[3] + 1) % 60;
-//                }
-//                val[4] = (val[4] + 1) % 60;
-//                break;
-//              case 11:
-//                if (val[4] == 0) {
-//                  val[3] = (val[3] - 1) % 60;
-//                }
-//                val[4] = (val[4] - 1) % 60;
-//                break;
-//              case 12:
-//                if (stato == false) {
-//                  val[3] = 0;
-//                  val[4] = 0;
-//                }
-//                break;
-//              case 13://P
-//                stato = true;
-//                break;
-//              case 14://S
-//                stato = false;
-//                break;
-//              case 15:
-//                if (stato == false) {
-//                  for (byte i = 0; i <= 4; i++) {
-//                    val[i] = 0;
-//                  }
-//                }
-//                break;
-//            }
+void serialAndPuls() {
+
+}
+
+void decomp() {
+  for (int i = 0; i <= 15; i++) {
+    if (state[i] == 1) {
+      if (shift == false) {
+        switch (i) {
+          case 0:
+            val[0] ++;
+            break;
+          case 1:
+            val[0] --;
+            break;
+          case 2:
+            val[1] ++;
+            break;
+          case 3:
+            val[1] --;
+            break;
+          case 4:
+            if (stato == false) {
+              val[0] = 0;
+              val[1] = 0;
+            }
+            break;
+          case 5:
+            val[2] ++;
+            break;
+          case 6:
+            val[2] --;
+            break;
+          case 7:
+            if (stato == false) {
+              val[2] = 0;
+            }
+            break;
+          case 8:
+            val[3] = (val[3] + 1) % 60;
+            break;
+          case 9:
+            val[3] = (val[3] - 1) % 60;
+            break;
+          case 10:
+            if (val[4] == 59) {
+              val[3] = (val[3] + 1) % 60;
+            }
+            val[4] = (val[4] + 1) % 60;
+            break;
+          case 11:
+            if (val[4] == 0) {
+              val[3] = (val[3] - 1) % 60;
+            }
+            val[4] = (val[4] - 1) % 60;
+            break;
+          case 12:
+            if (stato == false) {
+              val[3] = 0;
+              val[4] = 0;
+            }
+            break;
+          case 13://P
+            stato = true;
+            break;
+          case 14://S
+            stato = false;
+            break;
+          case 15:
+            if (stato == false) {
+              for (byte i = 0; i <= 4; i++) {
+                val[i] = 0;
+              }
+            }
+            break;
+        }
+      } else {
+
+      }
+    }
+  }
+}

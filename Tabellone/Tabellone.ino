@@ -1,5 +1,5 @@
 /*
-   ultima modifica fatta il 18/11/19
+   ultima modifica fatta il 12/02/2020 ore 07:26
 
    da: Alan Masutti
 
@@ -84,6 +84,7 @@ void pwISR();
 
 void setup() {
   Serial.begin(115200); //COM5
+  WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(ip, gateway, subnet);
   WiFi.softAP(ssid, pass);
   server.begin();
@@ -100,6 +101,7 @@ void loop() {
   String data1;
   String data2;
   String data3;
+
   WiFiClient client = server.available();
   while (Serial.available() > 0) {
     data = Serial.readStringUntil('\n');
@@ -112,11 +114,13 @@ void loop() {
   if (data == "Disconesso") {
     connesso = false;
   }
-  if (data == "debug.1") {
+  if (data == "debug1.1") {
     debug = true;
+    Serial.println("degug 1 attivo");
   }
-  if (data == "debug.0") {
+  if (data == "debug1.0") {
     debug = false;
+    Serial.println("degug 1 disattivo");
   }
   if (data == "?ip") {
     IPAddress myIP = WiFi.softAPIP();
@@ -137,7 +141,11 @@ void loop() {
 
   if (client) {
     if (client.connected()) {
-//      data = client.readStringUntil('\r');
+      data = client.readStringUntil('\r');
+      if(debug == true){
+        Serial.print("data: "); Serial.println(data);
+        Serial.print("myIndex: "); Serial.println(myIndex);
+      }
       if (data != "") {  //PROTOCOLLO: PT1.PT2.TP.MM.SS.ST.CI
         if (debug) {
           Serial.print("data: "); Serial.println(data);
@@ -149,16 +157,16 @@ void loop() {
         val[3] = splitString(data, '.', 3).toInt();
         val[4] = splitString(data, '.', 4).toInt();
 
-        //        toSendSerial = String(val[0]);
-        //        for (int i = 1; i < 5; i++) {
-        //          toSendSerial = toSendSerial + "." + String(val[i]);
-        //        }
+        toSendSerial = String(val[0]);
+        for (int i = 1; i < 5; i++) {
+          toSendSerial = toSendSerial + "." + String(val[i]);
+        }
 
 //        pt1.write(val[0]);
-        //        pt2.write(val[1]);
-        //        c_m.write(val[3]);
-        //        c_s.write(val[4]);
-        //        tempo.write(val[2]);
+//        pt2.write(val[1]);
+//        c_m.write(val[3]);
+//        c_s.write(val[4]);
+//        tempo.write(val[2]);
 
         myIndex = (myIndex + 1) % 10;
         if (debug) {
@@ -170,11 +178,11 @@ void loop() {
         toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "."
                        + String(val[3]) + "." + String(val[4]) + "." + String(myIndex) + String('\r');
         toSendSerial = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "."
-                       + String(val[3]) + "." + String(val[4]) + String('\r');
-        if (debug){
+                       + String(val[3]) + "." + String(val[4]) + String(".0.0.0.0\r");
+        if (debug==true) {
           Serial.print("toSendClient: "); Serial.println(toSendClient);
         }
-        if (connesso){
+        if (connesso == true) {
           Serial.println(toSendSerial);
         }
         client.println(toSendClient);
@@ -184,6 +192,8 @@ void loop() {
   }
   delay(150);
 }
+
+
 String splitString(String str, char sep, int index) {
   /* str è la variabile di tipo String che contiene il valore da splittare
      sep è ia variabile di tipo char che contiene il separatore (bisoga usare l'apostrofo: splitString(xx, 'xxx', yy)
