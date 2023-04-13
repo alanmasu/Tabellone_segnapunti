@@ -1,14 +1,19 @@
+
 /* Creato il 05/05/2020
     da Alan Masutti
 
    Note
     - Comprende già le modifiche fatte: falli e time-out
     - Da controllare gli indirizzi I2C
-    - Prima prova con PowerFail detector e EEPROM
-    - Prima prova di sleep modes
+    - PowerFail detector e EEPROM
+    - Aggiunte le sleep modes
+    - Prova tempi
 
    Ultima modifica il:
     05/05/2020
+
+
+    ULTIMA VERSIONE AL 09/05/2020
 
 */
 
@@ -21,7 +26,6 @@
 #include <esp_bt.h>
 #include <esp_wifi.h>
 #include <esp_system.h>
-#include <BluetoothSerial.h>
 
 //Display
 setteSeg pt1;
@@ -74,7 +78,11 @@ String splitString(String str, char sep, int index);
 void IRAM_ATTR ISR_powerFail();
 void IRAM_ATTR ISR_powerFailReturned();
 
-volatile bool powerFail_returned = false;
+long time_s = 0;
+long time_e = 0;
+
+bool powerFail_state = false;
+bool powerFail_state0 = false;
 volatile bool powerFail_event = false;
 TaskHandle_t powerFail_t;
 
@@ -89,22 +97,39 @@ String dataFromClient = "";
 String dataFromSerial = "";
 
 void setup() {
-  if (initEEPROM()){
+  time_e = millis();
+  initSerial();
+  Serial.print("initSerial: "); Serial.println(String(millis() - time_e));
+  time_e = millis();
+  if (initEEPROM()) {
     rsBackup();
+    Serial.print("rsBackup: "); Serial.println(String(millis() - time_e));
+    time_e = millis();
   }
   initMCP();
+  Serial.print("initMCP: "); Serial.println(String(millis() - time_e));
+  time_e = millis();
   initDigits();
+  Serial.print("initDigits: "); Serial.println(String(millis() - time_e));
+  time_e = millis();
   initDisplays();
+  Serial.print("initDisplays: "); Serial.println(String(millis() - time_e));
+  time_e = millis();
   displayPrint();
-  initSerial();
+  Serial.print("displayPrint: "); Serial.println(String(millis() - time_e));
+  time_e = millis();
   initWiFi();
+  Serial.print("initWiFi: "); Serial.println(String(millis() - time_e));
+  time_e = millis();
   initPowerFail();
+  Serial.print("initPowerFail: "); Serial.println(String(millis() - time_e));
+  time_e = millis();
 }
 
 void initSerial() {
   //Seriale
   Serial.begin(115200); // COM5
-  Serial.println("");
+  Serial.println("Sono vivo");
 }
 
 void initWiFi() {
@@ -154,8 +179,8 @@ bool initEEPROM() {
   return EEPROM.begin(10);
 }
 
-void rsBackup(){
-//Ripristino dati dell'ultima sessione
+void rsBackup() {
+  //Ripristino dati dell'ultima sessione
   for (byte i = 0; i < 9; i++) {
     val[i] = EEPROM.readInt(i);
   }
@@ -164,58 +189,60 @@ void rsBackup(){
 
 void initPowerFail() {
   pinMode(15, INPUT);
-  attachInterrupt(digitalPinToInterrupt(15), ISR_powerFail, FALLING);
-}
-
-void IRAM_ATTR ISR_powerFail() {
-  detachInterrupt(digitalPinToInterrupt(15));
-  Serial.println("BROWNOUT DETECTOR WAS TRIGGERED");
-//  WiFi.disconnect(true);
-//  WiFi.mode(WIFI_OFF);
-  powerFail_event = true;
-  powerFail_returned = false;
   xTaskCreatePinnedToCore(
-    backupTask,  /* Task function. */
-    "BACKUP_T",  /* name of task. */
-    10000,       /* Stack size of task */
-    NULL,        /* parameter of the task */
-    1,           /* priority of the task */
-    &powerFail_t,  /* Task handle to keep track of created task */
-    0);          /* pin task to core 0 */
+    powerFailTaskRoutine,   /* Task function. */
+    "POWERFAIL_T",             /* name of task. */
+    10000,                  /* Stack size of task */
+    NULL,                   /* parameter of the task */
+    1,                      /* priority of the task */
+    &powerFail_t,           /* Task handle to keep track of created task */
+    0);                     /* pin task to core 0 */
 }
 
+//void IRAM_ATTR ISR_powerFail() {
+//  time_s = millis();
+//  detachInterrupt(digitalPinToInterrupt(15));
+//  Serial.println("BROWNOUT DETECTOR WAS TRIGGERED");
+//  //  WiFi.disconnect(true);
+//  //  WiFi.mode(WIFI_OFF);
+//  powerFail_event = true;
+//  powerFail_returned = false;
+//
+//}
 
-void backupTask(void * pvParameters) {
-  //vTaskSuspend(loopTaskHandle);
-  Serial.println("STOPPING CONNECTIONS");
-  esp_wifi_stop();
-  esp_bluedroid_disable();
-  esp_bt_controller_disable();
-  digitalWrite(2,0);
-  
-  Serial.println("SAVING DATA");
-  if (EEPROMSave()) {
-    Serial.println("SAVING SUCCESFUL");
-  }
 
-  while(1) {
-    Serial.println("POWERFAIL DETECTOR IS RUNNIG");
-    micros();
+void powerFailTaskRoutine(void * pvParameters) {
+  Serial.println("POWERFAIL DETECTOR IS RUNNIG");
+  while (1) {
+    powerFail_state = digitalRead(15);
+    if (!powerFail_state && powerFail_state0 != powerFail_state) {
+      Serial.println("POWERFAIL DETECTOR WAS TRIGGERED");
+      //vTaskSuspend(loopTaskHandle);
+      powerFail_event = true;
+      Serial.println("STOPPING CONNECTIONS");
+      esp_wifi_stop();
+      esp_bluedroid_disable();
+      esp_bt_controller_disable();
+      digitalWrite(2, 0);
+      Serial.println("SAVING DATA");
+      time_s = millis();
+      if (EEPROMSave()) {
+        Serial.println("SAVING SUCCESFUL");
+        Serial.println("TIME FROM POWERFAIL TRIGGERING: " + String(millis() - time_s));
+      }
+    } else if (powerFail_state && powerFail_state0 != powerFail_state) {
+      if ( powerFail_event) {
+        //vTaskResume(loopTaskHandle);
+        Serial.println("POWERFAIL RETURNED");
+        initWiFi();
+        powerFail_event = false;
+      }
+    }
+    powerFail_state0 = powerFail_state;
     vTaskDelay(10);
-    if (powerFail_event) {
-      powerFail_returned = digitalRead(15);
-    }
-    if (powerFail_returned) {
-      //      vTaskResume(loopTaskHandle);
-      Serial.println("POWERFAIL RETURNED");
-      attachInterrupt(digitalPinToInterrupt(15), ISR_powerFail, FALLING);
-      initWiFi();
-      powerFail_event = false;
-      powerFail_returned = false;
-      vTaskDelete(powerFail_t);
-    }
   }
 }
+
 
 bool EEPROMSave() {
   for (int i = 0; i < 9; i++) {
@@ -256,9 +283,9 @@ void loop() {
       delay(50);
       displayPrintOnSerial();
       String toSend = formact();
-      sendClient(toSend);
+      //sendClient(toSend);
     }
-  }else{
+  } else {
     delay(100);
   }
 }
@@ -457,14 +484,14 @@ void deComp(String data) {
 }
 
 void displayPrint() {
-//  pt1.write(val[0]);
-//  pt2.write(val[1]);
-//  periodo.write(val[2]);
-//  c_m.write(val[3]);
-//  c_s.write(val[4]);
-//  falli1.write(val[5]);
-//  falli2.write(val[6]);
-//  printTimeOut();
+  pt1.write(val[0]);
+  pt2.write(val[1]);
+  periodo.write(val[2]);
+  c_m.write(val[3]);
+  c_s.write(val[4]);
+  falli1.write(val[5]);
+  falli2.write(val[6]);
+  printTimeOut();
 }
 void displayPrintOnSerial() {
   String toSendSerial = "";
@@ -532,7 +559,11 @@ String formact() { //PT1.PT2.TP.MM.SS.F1.F2.TO1.TO2.STATE
 }
 
 String sendClient(String text) {
-  client.print(text);
+  if(client){
+    if(client.connected()){
+      client.print(text);
+    }
+  }
 }
 
 void tik() {
