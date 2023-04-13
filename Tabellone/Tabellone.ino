@@ -1,13 +1,14 @@
-/* Creato il 29/04/2020
+/* Creato il 05/05/2020
     da Alan Masutti
 
    Note
     - Comprende già le modifiche fatte: falli e time-out
     - Da controllare gli indirizzi I2C
     - Prima prova con PowerFail detector e EEPROM
+    - Prima prova di sleep modes
 
    Ultima modifica il:
-    04/05/2020
+    05/05/2020
 
 */
 
@@ -17,9 +18,9 @@
 #include <setteSeg.h>
 #include <EEPROM.h>
 #include <esp_bt_main.h>
+#include <esp_bt.h>
 #include <esp_wifi.h>
 #include <esp_system.h>
-
 #include <BluetoothSerial.h>
 
 //Display
@@ -169,9 +170,8 @@ void initPowerFail() {
 void IRAM_ATTR ISR_powerFail() {
   detachInterrupt(digitalPinToInterrupt(15));
   Serial.println("BROWNOUT DETECTOR WAS TRIGGERED");
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
-  
+//  WiFi.disconnect(true);
+//  WiFi.mode(WIFI_OFF);
   powerFail_event = true;
   powerFail_returned = false;
   xTaskCreatePinnedToCore(
@@ -187,12 +187,18 @@ void IRAM_ATTR ISR_powerFail() {
 
 void backupTask(void * pvParameters) {
   //vTaskSuspend(loopTaskHandle);
+  Serial.println("STOPPING CONNECTIONS");
+  esp_wifi_stop();
+  esp_bluedroid_disable();
+  esp_bt_controller_disable();
+  digitalWrite(2,0);
+  
   Serial.println("SAVING DATA");
   if (EEPROMSave()) {
     Serial.println("SAVING SUCCESFUL");
   }
 
-  for (;;) {
+  while(1) {
     Serial.println("POWERFAIL DETECTOR IS RUNNIG");
     micros();
     vTaskDelay(10);
@@ -253,7 +259,7 @@ void loop() {
       sendClient(toSend);
     }
   }else{
-    delayMicroseconds(800);
+    delay(100);
   }
 }
 
