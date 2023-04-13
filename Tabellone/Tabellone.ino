@@ -1,19 +1,26 @@
-/* Creato il 18/02/2020
- *  da Alan Masutti
- * 
- * Note
- *  - Comprende già le modifiche fatte: falli e time-out
- *  - Da controllare gli indirizzi I2C
- *  
- * Ultima modifica il:
- *  18/02/2020
- * 
- */
+/* Creato il 29/04/2020
+    da Alan Masutti
+
+   Note
+    - Comprende già le modifiche fatte: falli e time-out
+    - Da controllare gli indirizzi I2C
+    - Prima prova con PowerFail detector e EEPROM
+
+   Ultima modifica il:
+    04/05/2020
+
+*/
 
 #include <Ticker.h>
 #include <WiFi.h>
 #include <SPI.h>
 #include <setteSeg.h>
+#include <EEPROM.h>
+#include <esp_bt_main.h>
+#include <esp_wifi.h>
+#include <esp_system.h>
+
+#include <BluetoothSerial.h>
 
 //Display
 setteSeg pt1;
@@ -45,12 +52,7 @@ int f2_2;
 int f2_3;
 
 //Moduli I/O
-Adafruit_MCP23017 mcp0;
-Adafruit_MCP23017 mcp1;
-Adafruit_MCP23017 mcp2;
-Adafruit_MCP23017 mcp3;
-Adafruit_MCP23017 mcp4;
-Adafruit_MCP23017 mcp5;
+Adafruit_MCP23017 mcp[6];
 
 //WiFi
 char ssid[] = "Tabellone";
@@ -67,10 +69,17 @@ Ticker crono;
 //Funzioni
 String splitString(String str, char sep, int index);
 
+//Power Fail
+void IRAM_ATTR ISR_powerFail();
+void IRAM_ATTR ISR_powerFailReturned();
+
+volatile bool powerFail_returned = false;
+volatile bool powerFail_event = false;
+TaskHandle_t powerFail_t;
 
 //Valori
-int val[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0};
-bool stato = false;
+volatile int val[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0};
+volatile bool stato = false;
 byte state[17]; //PT1+,PT1-,PT2+,PT2-,PTR,PER+,PER-,PERr,MIN+,MIN-,SEC+,SEC-,TR,P,S,R,SHIFT
 byte state_p[17];
 
@@ -79,12 +88,16 @@ String dataFromClient = "";
 String dataFromSerial = "";
 
 void setup() {
-  initSerial();
-  initWiFi();
+  if (initEEPROM()){
+    rsBackup();
+  }
   initMCP();
   initDigits();
   initDisplays();
-  reset();
+  displayPrint();
+  initSerial();
+  initWiFi();
+  initPowerFail();
 }
 
 void initSerial() {
@@ -106,27 +119,24 @@ void initWiFi() {
 }
 
 void initMCP() {
-  mcp0.begin(0);
-  mcp1.begin(1);
-  mcp2.begin(2);
-  mcp3.begin(3);
-  mcp4.begin(4);
-  mcp5.begin(5);
+  for (int i = 0; i < 6; i++) {
+    mcp[i].begin(i);
+  }
 }
 
 void initDigits() {
   //da vedere
-  pt1_1.begin('k', mcp0);
-  pt1_2.begin('k', mcp0);
-  pt2_1.begin('k', mcp1);
-  pt2_2.begin('k', mcp1);
-  min_1.begin('k', mcp2);
-  min_2.begin('k', mcp2);
-  sec_1.begin('k', mcp3);
-  sec_2.begin('k', mcp3);
-  falli1.begin('k', mcp4);
-  falli2.begin('k', mcp4);
-  periodo.begin('k', mcp5);
+  pt1_1.begin('k', mcp[0]);
+  pt1_2.begin('k', mcp[0]);
+  pt2_1.begin('k', mcp[1]);
+  pt2_2.begin('k', mcp[1]);
+  min_1.begin('k', mcp[2]);
+  min_2.begin('k', mcp[2]);
+  sec_1.begin('k', mcp[3]);
+  sec_2.begin('k', mcp[3]);
+  falli1.begin('k', mcp[4]);
+  falli2.begin('k', mcp[4]);
+  periodo.begin('k', mcp[5]);
 }
 void initDisplays() {
   pt1 = setteSeg(pt1_1, pt1_2);
@@ -138,7 +148,88 @@ void initDisplays() {
   c_m.begin('1');
   c_s.begin('1');
 }
+bool initEEPROM() {
+  //EEPROM
+  return EEPROM.begin(10);
+}
 
+void rsBackup(){
+//Ripristino dati dell'ultima sessione
+  for (byte i = 0; i < 9; i++) {
+    val[i] = EEPROM.readInt(i);
+  }
+  stato = EEPROM.readInt(9);
+}
+
+void initPowerFail() {
+  pinMode(15, INPUT);
+  attachInterrupt(digitalPinToInterrupt(15), ISR_powerFail, FALLING);
+}
+
+void IRAM_ATTR ISR_powerFail() {
+  detachInterrupt(digitalPinToInterrupt(15));
+  Serial.println("BROWNOUT DETECTOR WAS TRIGGERED");
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  
+  powerFail_event = true;
+  powerFail_returned = false;
+  xTaskCreatePinnedToCore(
+    backupTask,  /* Task function. */
+    "BACKUP_T",  /* name of task. */
+    10000,       /* Stack size of task */
+    NULL,        /* parameter of the task */
+    1,           /* priority of the task */
+    &powerFail_t,  /* Task handle to keep track of created task */
+    0);          /* pin task to core 0 */
+}
+
+
+void backupTask(void * pvParameters) {
+  //vTaskSuspend(loopTaskHandle);
+  Serial.println("SAVING DATA");
+  if (EEPROMSave()) {
+    Serial.println("SAVING SUCCESFUL");
+  }
+
+  for (;;) {
+    Serial.println("POWERFAIL DETECTOR IS RUNNIG");
+    micros();
+    vTaskDelay(10);
+    if (powerFail_event) {
+      powerFail_returned = digitalRead(15);
+    }
+    if (powerFail_returned) {
+      //      vTaskResume(loopTaskHandle);
+      Serial.println("POWERFAIL RETURNED");
+      attachInterrupt(digitalPinToInterrupt(15), ISR_powerFail, FALLING);
+      initWiFi();
+      powerFail_event = false;
+      powerFail_returned = false;
+      vTaskDelete(powerFail_t);
+    }
+  }
+}
+
+bool EEPROMSave() {
+  for (int i = 0; i < 9; i++) {
+    EEPROM.write(i, val[i]);
+  }
+  EEPROM.write(9, stato);
+  if (EEPROM.commit()) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void powerFailReset() {
+  for (int c = 0; c < 6; c++) {
+    for (int i = 0; i < 16; i++) {
+      mcp[c].digitalWrite(i, 0);
+    }
+  }
+}
 void reset() {
   pt1.write(0);
   pt2.write(0);
@@ -150,17 +241,19 @@ void reset() {
 }
 
 void loop() {
-  readSerial();
-  if (checkConnection()) {
-    dataFromClient = readClient();
-    deComp(dataFromClient);
-//    displayPrint();
-    delay(50);
-    displayPrintOnSerial();
-    String toSend = formact();
-    sendClient("prova");
-    client.stop();
-    client.flush();
+  if (!powerFail_event) {
+    readSerial();
+    if (checkConnection()) {
+      dataFromClient = readClient();
+      deComp(dataFromClient);
+      displayPrint();
+      delay(50);
+      displayPrintOnSerial();
+      String toSend = formact();
+      sendClient(toSend);
+    }
+  }else{
+    delayMicroseconds(800);
   }
 }
 
@@ -264,7 +357,7 @@ void deComp(String data) {
               }
               break;
             case 13://P
-              if(val[3] != 0 || val[4] != 0){
+              if (val[3] != 0 || val[4] != 0) {
                 crono.attach(1, tik);
                 stato = true;
               }
@@ -331,7 +424,7 @@ void deComp(String data) {
               }
               break;
             case 13://P
-              if(val[3] != 0 || val[4] != 0){
+              if (val[3] != 0 || val[4] != 0) {
                 crono.attach(1, tik);
                 stato = true;
               }
@@ -377,50 +470,50 @@ void displayPrintOnSerial() {
 }
 
 void printTimeOut() {
-  switch (val[7]) {
-    case 0:
-      mcp5.digitalWrite(f1_1, 0);
-      mcp5.digitalWrite(f1_2, 0);
-      mcp5.digitalWrite(f1_3, 0);
-      break;
-    case 1:
-      mcp5.digitalWrite(f1_1, 1);
-      mcp5.digitalWrite(f1_2, 0);
-      mcp5.digitalWrite(f1_3, 0);
-      break;
-    case 2:
-      mcp5.digitalWrite(f1_1, 1);
-      mcp5.digitalWrite(f1_2, 1);
-      mcp5.digitalWrite(f1_3, 0);
-      break;
-    case 3:
-      mcp5.digitalWrite(f1_1, 1);
-      mcp5.digitalWrite(f1_2, 1);
-      mcp5.digitalWrite(f1_3, 1);
-      break;
-  }
-  switch (val[8]) {
-    case 0:
-      mcp5.digitalWrite(f2_1, 0);
-      mcp5.digitalWrite(f2_2, 0);
-      mcp5.digitalWrite(f2_3, 0);
-      break;
-    case 1:
-      mcp5.digitalWrite(f2_1, 1);
-      mcp5.digitalWrite(f2_2, 0);
-      mcp5.digitalWrite(f2_3, 0);
-      break;
-    case 2:
-      mcp5.digitalWrite(f2_1, 1);
-      mcp5.digitalWrite(f2_2, 1);
-      mcp5.digitalWrite(f2_3, 0);
-      break;
-    case 3:
-      mcp5.digitalWrite(f2_1, 1);
-      mcp5.digitalWrite(f2_2, 1);
-      mcp5.digitalWrite(f2_3, 1);
-      break;
-  }
+  //  switch (val[7]) {
+  //    case 0:
+  //      mcp5.digitalWrite(f1_1, 0);
+  //      mcp5.digitalWrite(f1_2, 0);
+  //      mcp5.digitalWrite(f1_3, 0);
+  //      break;
+  //    case 1:
+  //      mcp5.digitalWrite(f1_1, 1);
+  //      mcp5.digitalWrite(f1_2, 0);
+  //      mcp5.digitalWrite(f1_3, 0);
+  //      break;
+  //    case 2:
+  //      mcp5.digitalWrite(f1_1, 1);
+  //      mcp5.digitalWrite(f1_2, 1);
+  //      mcp5.digitalWrite(f1_3, 0);
+  //      break;
+  //    case 3:
+  //      mcp5.digitalWrite(f1_1, 1);
+  //      mcp5.digitalWrite(f1_2, 1);
+  //      mcp5.digitalWrite(f1_3, 1);
+  //      break;
+  //  }
+  //  switch (val[8]) {
+  //    case 0:
+  //      mcp5.digitalWrite(f2_1, 0);
+  //      mcp5.digitalWrite(f2_2, 0);
+  //      mcp5.digitalWrite(f2_3, 0);
+  //      break;
+  //    case 1:
+  //      mcp5.digitalWrite(f2_1, 1);
+  //      mcp5.digitalWrite(f2_2, 0);
+  //      mcp5.digitalWrite(f2_3, 0);
+  //      break;
+  //    case 2:
+  //      mcp5.digitalWrite(f2_1, 1);
+  //      mcp5.digitalWrite(f2_2, 1);
+  //      mcp5.digitalWrite(f2_3, 0);
+  //      break;
+  //    case 3:
+  //      mcp5.digitalWrite(f2_1, 1);
+  //      mcp5.digitalWrite(f2_2, 1);
+  //      mcp5.digitalWrite(f2_3, 1);
+  //      break;
+  //  }
 }
 
 String formact() { //PT1.PT2.TP.MM.SS.F1.F2.TO1.TO2.STATE
@@ -433,7 +526,7 @@ String formact() { //PT1.PT2.TP.MM.SS.F1.F2.TO1.TO2.STATE
 }
 
 String sendClient(String text) {
-  client.println(text);
+  client.print(text);
 }
 
 void tik() {
