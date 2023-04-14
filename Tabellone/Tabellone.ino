@@ -1,24 +1,23 @@
+/*
+    Creato il 22/05/2020
+     da Alan Masutti
 
-/* Creato il 05/05/2020
-    da Alan Masutti
+    Note
+     - Comprende già le modifiche fatte: falli e time-out
+     - Da controllare gli indirizzi I2C
+     - PowerFail detector e EEPROM
+     - Aggiunte le sleep modes
 
-   Note
-    - Comprende già le modifiche fatte: falli e time-out
-    - Da controllare gli indirizzi I2C
-    - PowerFail detector e EEPROM
-    - Aggiunte le sleep modes
-    - Prova tempi
+    Ultima modifica il:
+     22/05/2020
 
-   Ultima modifica il:
-    05/05/2020
-
-
-    ULTIMA VERSIONE AL 09/05/2020
+     SISTEMARE SOLO TERZE CIFRE E RIFIERMINETO CIRCOLARE
 
 */
 
 #include <Ticker.h>
 #include <WiFi.h>
+#include <TimeLib.h>
 #include <SPI.h>
 #include <setteSeg.h>
 #include <EEPROM.h>
@@ -26,6 +25,7 @@
 #include <esp_bt.h>
 #include <esp_wifi.h>
 #include <esp_system.h>
+
 
 //Display
 setteSeg pt1;
@@ -75,16 +75,12 @@ Ticker crono;
 String splitString(String str, char sep, int index);
 
 //Power Fail
-void IRAM_ATTR ISR_powerFail();
-void IRAM_ATTR ISR_powerFailReturned();
-
-long time_s = 0;
-long time_e = 0;
-
 bool powerFail_state = false;
 bool powerFail_state0 = false;
 volatile bool powerFail_event = false;
 TaskHandle_t powerFail_t;
+long time_s = 0;
+
 
 //Valori
 volatile int val[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -97,39 +93,21 @@ String dataFromClient = "";
 String dataFromSerial = "";
 
 void setup() {
-  time_e = millis();
   initSerial();
-  Serial.print("initSerial: "); Serial.println(String(millis() - time_e));
-  time_e = millis();
   if (initEEPROM()) {
     rsBackup();
-    Serial.print("rsBackup: "); Serial.println(String(millis() - time_e));
-    time_e = millis();
   }
   initMCP();
-  Serial.print("initMCP: "); Serial.println(String(millis() - time_e));
-  time_e = millis();
   initDigits();
-  Serial.print("initDigits: "); Serial.println(String(millis() - time_e));
-  time_e = millis();
   initDisplays();
-  Serial.print("initDisplays: "); Serial.println(String(millis() - time_e));
-  time_e = millis();
   displayPrint();
-  Serial.print("displayPrint: "); Serial.println(String(millis() - time_e));
-  time_e = millis();
   initWiFi();
-  Serial.print("initWiFi: "); Serial.println(String(millis() - time_e));
-  time_e = millis();
   initPowerFail();
-  Serial.print("initPowerFail: "); Serial.println(String(millis() - time_e));
-  time_e = millis();
 }
 
 void initSerial() {
   //Seriale
   Serial.begin(115200); // COM5
-  Serial.println("Sono vivo");
 }
 
 void initWiFi() {
@@ -164,6 +142,7 @@ void initDigits() {
   falli2.begin('k', mcp[4]);
   periodo.begin('k', mcp[5]);
 }
+
 void initDisplays() {
   pt1 = setteSeg(pt1_1, pt1_2);
   pt2 = setteSeg(pt2_1, pt2_2);
@@ -191,25 +170,13 @@ void initPowerFail() {
   pinMode(15, INPUT);
   xTaskCreatePinnedToCore(
     powerFailTaskRoutine,   /* Task function. */
-    "POWERFAIL_T",             /* name of task. */
+    "POWERFAIL_T",          /* name of task. */
     10000,                  /* Stack size of task */
     NULL,                   /* parameter of the task */
     1,                      /* priority of the task */
     &powerFail_t,           /* Task handle to keep track of created task */
     0);                     /* pin task to core 0 */
 }
-
-//void IRAM_ATTR ISR_powerFail() {
-//  time_s = millis();
-//  detachInterrupt(digitalPinToInterrupt(15));
-//  Serial.println("BROWNOUT DETECTOR WAS TRIGGERED");
-//  //  WiFi.disconnect(true);
-//  //  WiFi.mode(WIFI_OFF);
-//  powerFail_event = true;
-//  powerFail_returned = false;
-//
-//}
-
 
 void powerFailTaskRoutine(void * pvParameters) {
   Serial.println("POWERFAIL DETECTOR IS RUNNIG");
@@ -263,6 +230,7 @@ void powerFailReset() {
     }
   }
 }
+
 void reset() {
   pt1.write(0);
   pt2.write(0);
@@ -332,151 +300,151 @@ void deComp(String data) {
     }
     for (int i = 0; i < 16; i++) {
       if (state[i] == 1 && state[i] != state_p[i]) {
-        if (state[16] == 0) {//Shift non premuto
-          switch (i) {
-            case 0:
+          if (state[16] == 0) {//Shift non premuto
+            switch (i) {
+              case 0:
               val[0] ++;
               Serial.println("val[0] ++");
-              break;
-            case 1:
+                break;
+              case 1:
               Serial.println("val[0] --");
               val[0] --;
-              break;
-            case 2:
+                break;
+              case 2:
               val[1] ++;
-              break;
-            case 3:
+                break;
+              case 3:
               val[1] --;
-              break;
-            case 4:
-              if (stato == false) {
-                val[0] = 0;
-                val[1] = 0;
-              }
-              break;
-            case 5:
+                break;
+              case 4:
+                if (stato == false) {
+                  val[0] = 0;
+                  val[1] = 0;
+                }
+                break;
+              case 5:
               val[2] ++;
-              break;
-            case 6:
+                break;
+              case 6:
               val[2] --;
-              break;
-            case 7:
-              if (stato == false) {
-                val[2] = 0;
-              }
-              break;
-            case 8:
+                break;
+              case 7:
+                if (stato == false) {
+                  val[2] = 0;
+                }
+                break;
+              case 8:
               val[3] = (val[3] + 1) % 60;
-              break;
-            case 9:
+                break;
+              case 9:
               val[3] = (val[3] - 1) % 60;
-              break;
-            case 10:
-              if (val[4] == 59) {
+                break;
+              case 10:
+                if (val[4] == 59) {
                 val[3] = (val[3] + 1) % 60;
-              }
+                }
               val[4] = (val[4] + 1) % 60;
-              break;
-            case 11:
-              if (val[4] == 0) {
+                break;
+              case 11:
+                if (val[4] == 0) {
                 val[3] = (val[3] - 1) % 60;
-              }
+                }
               val[4] = (val[4] - 1) % 60;
-              break;
-            case 12:
-              if (stato == false) {
-                val[3] = 0;
-                val[4] = 0;
-              }
-              break;
-            case 13://P
-              if (val[3] != 0 || val[4] != 0) {
-                crono.attach(1, tik);
-                stato = true;
-              }
-              break;
-            case 14://S
-              crono.detach();
-              stato = false;
-              break;
-            case 15:
-              if (stato == false) {
-                for (byte i = 0; i < 9; i++) {
-                  val[i] = 0;
+                break;
+              case 12:
+                if (stato == false) {
+                  val[3] = 0;
+                  val[4] = 0;
                 }
-              }
-              break;
-          }
-        } else { //Shift premuto
-          switch (i) {
-            case 0: //Falli 1
+                break;
+              case 13://P
+                if (val[3] != 0 || val[4] != 0) {
+                  crono.attach(1, tik);
+                  stato = true;
+                }
+                break;
+              case 14://S
+                crono.detach();
+                stato = false;
+                break;
+              case 15:
+                if (stato == false) {
+                  for (byte i = 0; i < 9; i++) {
+                    val[i] = 0;
+                  }
+                }
+                break;
+            }
+          } else { //Shift premuto
+            switch (i) {
+              case 0: //Falli 1
               val[5] = (val[5] + 1) % 6;
-              break;
-            case 1:
+                break;
+              case 1:
               val[5] = (val[5] - 1) % 6;
-              break;
-            case 2: //Falli 2
+                break;
+              case 2: //Falli 2
               val[6] = (val[6] + 1) % 6;
-              break;
-            case 3:
+                break;
+              case 3:
               val[6] = (val[6] - 1) % 6;
-              break;
-            case 4: //Falli reset
-              if (stato == false) {
-                val[5] = 0;
-                val[6] = 0;
-              }
-              break;
-            case 5:
+                break;
+              case 4: //Falli reset
+                if (stato == false) {
+                  val[5] = 0;
+                  val[6] = 0;
+                }
+                break;
+              case 5:
               val[2] ++;
-              break;
-            case 6:
+                break;
+              case 6:
               val[2] --;
-              break;
-            case 7:
-              if (stato == false) {
-                val[2] = 0;
-              }
-              break;
-            case 8:
+                break;
+              case 7:
+                if (stato == false) {
+                  val[2] = 0;
+                }
+                break;
+              case 8:
               val[7] = (val[7] + 1) % 4;
-              break;
-            case 9:
+                break;
+              case 9:
               val[7] = (val[7] - 1) % 4;
-              break;
-            case 10:
+                break;
+              case 10:
               val[8] = (val[8] + 1) % 4;
-              break;
-            case 11:
+                break;
+              case 11:
               val[8] = (val[8] - 1) % 4;
-              break;
-            case 12:
-              if (stato == false) {
-                val[7] = 0;
-                val[8] = 0;
-              }
-              break;
+                break;
+              case 12:
+                if (stato == false) {
+                  val[7] = 0;
+                  val[8] = 0;
+                }
+                break;
             case 13://P
               if (val[3] != 0 || val[4] != 0) {
                 crono.attach(1, tik);
                 stato = true;
-              }
-              break;
+                }
+                break;
             case 14://S
               crono.detach();
               stato = false;
-              break;
-            case 15:
-              if (stato == false) {
-                for (byte i = 0; i < 9; i++) {
-                  val[i] = 0;
+                break;
+              case 15:
+                if (stato == false) {
+                  for (byte i = 0; i < 9; i++) {
+                    val[i] = 0;
+                  }
                 }
-              }
-              break;
+                break;
+            }
           }
-        }
-      }
-    }
+                  }
+              }
     for (int i = 0; i < 17; i++) {
       state_p[i] = state[i];
     }
@@ -503,50 +471,50 @@ void displayPrintOnSerial() {
 }
 
 void printTimeOut() {
-  //  switch (val[7]) {
-  //    case 0:
-  //      mcp5.digitalWrite(f1_1, 0);
-  //      mcp5.digitalWrite(f1_2, 0);
-  //      mcp5.digitalWrite(f1_3, 0);
-  //      break;
-  //    case 1:
-  //      mcp5.digitalWrite(f1_1, 1);
-  //      mcp5.digitalWrite(f1_2, 0);
-  //      mcp5.digitalWrite(f1_3, 0);
-  //      break;
-  //    case 2:
-  //      mcp5.digitalWrite(f1_1, 1);
-  //      mcp5.digitalWrite(f1_2, 1);
-  //      mcp5.digitalWrite(f1_3, 0);
-  //      break;
-  //    case 3:
-  //      mcp5.digitalWrite(f1_1, 1);
-  //      mcp5.digitalWrite(f1_2, 1);
-  //      mcp5.digitalWrite(f1_3, 1);
-  //      break;
-  //  }
-  //  switch (val[8]) {
-  //    case 0:
-  //      mcp5.digitalWrite(f2_1, 0);
-  //      mcp5.digitalWrite(f2_2, 0);
-  //      mcp5.digitalWrite(f2_3, 0);
-  //      break;
-  //    case 1:
-  //      mcp5.digitalWrite(f2_1, 1);
-  //      mcp5.digitalWrite(f2_2, 0);
-  //      mcp5.digitalWrite(f2_3, 0);
-  //      break;
-  //    case 2:
-  //      mcp5.digitalWrite(f2_1, 1);
-  //      mcp5.digitalWrite(f2_2, 1);
-  //      mcp5.digitalWrite(f2_3, 0);
-  //      break;
-  //    case 3:
-  //      mcp5.digitalWrite(f2_1, 1);
-  //      mcp5.digitalWrite(f2_2, 1);
-  //      mcp5.digitalWrite(f2_3, 1);
-  //      break;
-  //  }
+  // switch (val[7]) {
+  //   case 0:
+  //     mcp5.digitalWrite(f1_1, 0);
+  //     mcp5.digitalWrite(f1_2, 0);
+  //     mcp5.digitalWrite(f1_3, 0);
+  //     break;
+  //   case 1:
+  //     mcp5.digitalWrite(f1_1, 1);
+  //     mcp5.digitalWrite(f1_2, 0);
+  //     mcp5.digitalWrite(f1_3, 0);
+  //     break;
+  //   case 2:
+  //     mcp5.digitalWrite(f1_1, 1);
+  //     mcp5.digitalWrite(f1_2, 1);
+  //     mcp5.digitalWrite(f1_3, 0);
+  //     break;
+  //   case 3:
+  //     mcp5.digitalWrite(f1_1, 1);
+  //     mcp5.digitalWrite(f1_2, 1);
+  //     mcp5.digitalWrite(f1_3, 1);
+  //     break;
+  // }
+  // switch (val[8]) {
+  //   case 0:
+  //     mcp5.digitalWrite(f2_1, 0);
+  //     mcp5.digitalWrite(f2_2, 0);
+  //     mcp5.digitalWrite(f2_3, 0);
+  //     break;
+  //   case 1:
+  //     mcp5.digitalWrite(f2_1, 1);
+  //     mcp5.digitalWrite(f2_2, 0);
+  //     mcp5.digitalWrite(f2_3, 0);
+  //     break;
+  //   case 2:
+  //     mcp5.digitalWrite(f2_1, 1);
+  //     mcp5.digitalWrite(f2_2, 1);
+  //     mcp5.digitalWrite(f2_3, 0);
+  //     break;
+  //   case 3:
+  //     mcp5.digitalWrite(f2_1, 1);
+  //     mcp5.digitalWrite(f2_2, 1);
+  //     mcp5.digitalWrite(f2_3, 1);
+  //     break;
+  // }
 }
 
 String formact() { //PT1.PT2.TP.MM.SS.F1.F2.TO1.TO2.STATE
