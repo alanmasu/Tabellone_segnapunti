@@ -1,8 +1,9 @@
-/* Creato il 09/05/2020
+/* Creato il 22/05/2020
     da Alan Masutti
 
    Note
     - Comprende già le modifiche fatte: falli e time-out
+    - Inserto RTC
 
    Ultima modifica il:
     25/05/2020
@@ -13,10 +14,10 @@
 #include <SPI.h>
 #include <WiFi.h>
 #include <Adafruit_MCP23017.h>
+#include <DS3231.h>
 
 //Funzioni
 String splitString(String str, char sep, int index); //Funzione: splitta le stringhe
-
 
 //Costanti pin
 byte pins[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
@@ -27,18 +28,16 @@ int startLed = 12;
 int stopLed = 14;
 int resetLed = 27;
 
-
-
 //Valori
-int val[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+int val[11] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 byte state[17]; //PT1+,PT1-,PT2+,PT2-,PTR,PER+,PER-,PERr,MIN+,MIN-,SEC+,SEC-,TR,P,S,R,SHIFT
+byte state_p[17];
 bool stato = false;
 
 //Modulo I/O
 Adafruit_MCP23017 mcp;
 
 //Per comando seriale
-String nomi[16] = { "pt1_p", "pt1_m", "pt2_p", "pt2_m", "pt_r", "t_p", "t_m", "t_r", "min_p", "min_m", "sec_p", "sec_m", "sec_r", "p", "s", "r" };
 bool serial = true;
 
 //WiFi
@@ -58,11 +57,23 @@ String dataFromSerial;
 bool connesso = false;
 bool debug1 = false;
 
+//Time
+DS3231 Clock;
+byte ore;
+byte minuti;
+bool h12;
+bool PM;
+
+//Per avanzamento veloce
+long time_p;
+byte tasto_p;
+
 void setup() {
-  initMCPs();
+    initMCPs();
   initPins();
   initSerial();
   initWiFi();
+initRTC();
 }
 void initMCPs() {
   //inizializzo gli ingressi
@@ -111,35 +122,33 @@ void initWiFi() {
   Serial.println(WiFi.localIP());
 }
 
-long istant = 0;
+void initRTC() {
+
+  Wire.begin();
+  Clock.setClockMode(false);
+  minuti = Clock.getMinute();
+  ore = Clock.getHour(h12, PM);
+  Serial.println(getTime());
+}
 
 void loop() {
-  istant = millis();
   readSerial();
   if(serial){
     readVirtualButtons();
   }else{
     readButtons();
   }
-  
-  // Serial.println("Controllo connessione");
   if (checkConnection()) {
-    //Serial.println("Connesso");
     String toSend = formact();
     Serial.println(toSend);
-    bool result = sendClient(toSend);
-    // Serial.println("Client Scritto: " + String(result));
+    sendClient(toSend);
     dataFromServer = readClient();
-    // Serial.println("Client letto");
     deComp(dataFromServer);
-    // Serial.println("Dati elaborati");
     client.stop();
     client.flush();
-  } else {
+      } else {
     reconnect();
   }
-  //Serial.println("Loop time: " + String(millis() - istant));
-  delay(50);
 }
 
 bool checkConnection() {
@@ -169,28 +178,26 @@ void readSerial() {
     debug1 = data2.toInt();
     Serial.print("debug1: "); Serial.println(debug1);
     dataFromSerial = "";
-  } 
-}
-
-void readVirtualButtons(){
-  String data1 = "", data2 = "", data3 = "";
-  //Azzero l'array degli stati
-  if (serial == true) {
-    for (byte i = 0; i < 16; i++) {
-      state[i] = 0;
     }
+}
+uint32_t t0 = 0;
+void readVirtualButtons(){
+  if (serial == true) {
+    // for (byte i = 0; i < 16; i++) {
+    //   state[i] = 0;
+    // }
+    // if(millis()-t0 > 1000){
+    //   Serial.print("dataFromSerial: ");
+    //   Serial.println(dataFromSerial);
+    //   t0 = millis();
+    // }
     if (dataFromSerial != ""){
       //Legge in seriale i valori
-      data1 = splitString(dataFromSerial, '.', 0);
-      data2 = splitString(dataFromSerial, '.', 1);
-      data3 = splitString(dataFromSerial, '.', 2);
-      dataFromSerial = "";
-      for (byte i = 0; i < 16; i++) {
-        if (data1 == nomi[i]) {
-          state[i] = 1;
-        }
+      
+      for (byte i = 0; i < 17; i++) {
+        state[i] = splitString(dataFromSerial, '.', i).toInt();
       }
-      state[16] = data3.toInt();
+      dataFromSerial = "";
     }
   }
 }
@@ -205,8 +212,72 @@ void readButtons() {
   state[13] = mcp.digitalRead(13);
   state[14] = mcp.digitalRead(14);
   state[15] = mcp.digitalRead(15);
+
   state[16] = digitalRead(shiftPin);
   digitalWrite(shiftLed, state[16]);
+if ( val[9] == 0 && val[10] == 1) {
+    if (state[16] == 1) { //Shift
+      if (state[5] == 1) {
+        if ( state[5] != state_p[5]) { //+
+          time_p = millis();
+          tasto_p = 5;
+          if (minuti == 59) {
+            ore = ore == 24 ? 0 : ore + 1;
+          }
+          minuti = minuti == 59 ? 0 : minuti + 1;
+          impostaOra(minuti, ore);
+        } else {
+          if (millis() - time_p > 3000 && tasto_p == 5 && millis() - time_p < 20000) {
+            if ((minuti + 5) == 59 || (minuti + 5) > 59) {
+              ore = ore == 24 || ore > 24 ? 0 : ore + 1;
+            }
+            minuti = (minuti + 5) == 59 || (minuti + 5) > 59 ? 0 : minuti + 5;
+            impostaOra(minuti, ore);
+            delay(800);
+          } else if (millis() - time_p > 20000 && tasto_p == 5) {
+            ore = ore == 24 || ore > 24 ? 0 : ore + 1;
+            impostaOra(minuti, ore);
+            delay(800);
+          }
+        }
+      }
+      if (state[6] == 1) {
+        if (state[6] != state_p[6]) { //-
+          time_p = millis();
+          tasto_p = 6;
+          if (minuti == 0) {
+            ore = ore == 0 ? 24 : ore - 1;
+          }
+          minuti = minuti == 0 ? 59 : minuti - 1;
+          Serial.println("min -; min: " + String(minuti) + " ore: " + String(ore));
+          impostaOra(minuti, ore);
+        } else {
+          if (millis() - time_p > 3000 && tasto_p == 6 && millis() - time_p < 20000) {
+            if ((minuti - 5) == 0 || (minuti - 5) < 0) {
+              ore = ore == 0 || ore < 0 ? 24 : ore - 1;
+            }
+            minuti = (minuti - 5) == 0 || (minuti - 5) < 0 ? 59 : minuti - 5;
+            impostaOra(minuti, ore);
+            delay(800);
+          } else if (millis() - time_p > 20000 && tasto_p == 6) {
+            ore = ore == 24 || ore > 24 ? 0 : ore - 1;
+            impostaOra(minuti, ore);
+            delay(800);
+          }
+        }
+      }
+    }
+  }
+  for (int i = 0; i < 16; i++) {
+    state_p[i] = state[i];
+  }
+}
+
+
+void impostaOra(byte minuti, byte ore) {
+  Clock.setSecond(0);//Set the second
+  Clock.setMinute(minuti);//Set the minute
+  Clock.setHour(ore); //Set the hour
 }
 
 String formact() {
@@ -216,32 +287,33 @@ String formact() {
   for (i = 0; i < 17; i++ ) {
     text += String(state[i]) + ".";
   }
-  text += String(state[i + 1]) + "\r";
+  text += getTime() + "\r";
   return text;
+}
+
+String getTime() {
+  return String(Clock.getHour(h12, PM)) + ":" + String(Clock.getMinute());
 }
 
 bool deComp(String data) {
   //Decompone i valori letti dal server
+  bool shift = digitalRead(shiftPin);
   if (data != "") {
-    if (debug1) {
-      Serial.print("data: "); Serial.println(data);
-      Serial.print("debug: ");
-    }
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 11; i++) {
       val[i] = splitString(data, '.', i).toInt();
-      if (debug1) {
-        Serial.print("val[" + String(i) + "]: "); Serial.println(String(val[i]) + ".");
-      }
     }
-    if (debug1) {
-      Serial.println();
-    }
-  } else {
+      } else {
     return false;
   }
-  digitalWrite(startLed, !val[9]);
-  digitalWrite(resetLed, !val[9]);
-  digitalWrite(stopLed, val[9]);
+  if (!shift) {
+          digitalWrite(startLed, !val[9]);
+      digitalWrite(resetLed, !val[9]);
+      digitalWrite(stopLed, val[9]);
+    } else {
+            digitalWrite(startLed, !val[10]);
+      digitalWrite(resetLed, !val[10]);
+      digitalWrite(stopLed, val[10]);
+      }
   return true;
 }
 
@@ -259,11 +331,7 @@ bool sendClient(String text) {
     if (client.connected()) {
       client.print(text);
       return true;
-      client.stop();
-      client.flush();
     } else {
-      client.stop();
-      client.flush();
       return false;
     }
   } else {
@@ -282,12 +350,8 @@ String readClient() {
   if (client) {
     if (client.connected()) {
       data = client.readStringUntil('\r');
-      client.stop();
-      client.flush();
       return data;
     } else {
-      client.stop();
-      client.flush();
       return "";
     }
   } else {
