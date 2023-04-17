@@ -12,6 +12,7 @@
 
 */
 
+#include <setteSeg.h>
 #include <Ticker.h>
 #include <WiFi.h>
 #include <SPI.h>
@@ -21,7 +22,6 @@
 #include <esp_bt.h>
 #include <esp_wifi.h>
 #include <esp_system.h>
-#include "setteSeg.h"
 
 //Display
 setteSeg pt1;
@@ -86,7 +86,7 @@ TaskHandle_t powerFail_t;
 volatile int val[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0};
 volatile bool stato = false;
 volatile bool mode = 0; // Se 0 --> tabellone | Se 1 --> orologio
-bool modeImpostata = false; 
+bool modeImpostata = false;
 byte state[17];    //PT1+,PT1-,PT2+,PT2-,PTR,PER+,PER-,PERr,MIN+,MIN-,SEC+,SEC-,TR,P,S,R,SHIFT
 byte state_p[17];
 long time_c;       //Tempo dall'ultima connessione della pulsantiera
@@ -639,11 +639,11 @@ void deComp(String data) {
                     impostaOra(minuti, ore);
                     break;
                   case 10:
-                    minuti = minuti >= 59 ? 0 : minuti + 1;
+                    minuti = minuti >= 59 ? 0 : minuti + 5;
                     impostaOra(minuti, ore);
                     break;
                   case 11:
-                    minuti = minuti <= 0 ? 59 : minuti - 1;
+                    minuti = minuti <= 0 ? 59 : minuti - 5;
                     impostaOra(minuti, ore);
                     break;
                   case 14://S
