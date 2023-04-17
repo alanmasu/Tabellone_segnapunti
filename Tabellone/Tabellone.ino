@@ -117,7 +117,7 @@ void setup() {
   initFalli();
   initDuePunti();
   testTab();
-  displayPrint();
+  displayWrite();
   initWiFi();
   initPowerFail();
   initRTC();
@@ -182,7 +182,7 @@ void initFalli() {
   mcp[mcpTimeout].pinMode(f2_3, OUTPUT);
 }
 
-void duePunti();
+
 
 void initDuePunti() {
   mcp[2].pinMode(7, OUTPUT);
@@ -203,8 +203,10 @@ void testTab() {
   mcp[mcpTimeout].digitalWrite(f2_1, 1);
   mcp[mcpTimeout].digitalWrite(f2_2, 1);
   mcp[mcpTimeout].digitalWrite(f2_3, 1);
-  delay(750);
-  clearTab();
+  mcp[2].digitalWrite(7, 1);
+  mcp[2].digitalWrite(15, 1);
+  delay(2000);
+  reset();
 }
 
 void IRAM_ATTR duePunti() {
@@ -306,16 +308,24 @@ void reset() {
   c_s.write(0);
   falli1.write(0);
   falli2.write(0);
+  mcp[mcpTimeout].digitalWrite(f1_1, 0);
+  mcp[mcpTimeout].digitalWrite(f1_2, 0);
+  mcp[mcpTimeout].digitalWrite(f1_3, 0);
+  mcp[mcpTimeout].digitalWrite(f2_1, 0);
+  mcp[mcpTimeout].digitalWrite(f2_2, 0);
+  mcp[mcpTimeout].digitalWrite(f2_3, 0);
 }
 
 void loop() {
   if (!powerFail_event) {
     readSerial();
     if (checkConnection()) {
-      if (modeImpostata == false) {
+      if (modeImpostata == false && mode == 1) {
         mode = 0;
         stateP = 1;
         timer2p.detach();
+        displayWrite();
+        delay(25);
       }
       time_c = millis();
       dataFromClient = readClient();
@@ -390,8 +400,8 @@ void deComp(String data) {
         if (state[i] != state_p[i]) {
           time_p = millis();
           tasto_p = i;
-          if (state[16] == 0) {//Shift non premuto
-            if (mode == 0) {
+          if (mode == 0) {
+            if (state[16] == 0) {//Shift non premuto in mod tab
               switch (i) {
                 case 0:
                   val[0] = val[0] == 199 ? 0 : val[0] + 1;
@@ -429,7 +439,7 @@ void deComp(String data) {
                   val[3] = val[3] == 0 ? 99 : val[3] - 1;
                   break;
                 case 10:
-                  if (stato == 0) {
+                  if (stato == false) {
                     if (val[4] == 59) {
                       val[3] = val[3] == 99 ? 0 : val[3] + 1;
                     }
@@ -437,7 +447,7 @@ void deComp(String data) {
                   }
                   break;
                 case 11:
-                  if (stato == 0) {
+                  if (stato == false) {
                     if (val[4] == 0) {
                       val[3] = val[3] == 0 ? 99 : val[3] - 1;
                     }
@@ -471,9 +481,7 @@ void deComp(String data) {
                   }
                   break;
               }
-            }
-          } else { //Shift premuto
-            if (mode == 0) {
+            } else { //Shift Premuto in mod. tab
               switch (i) {
                 case 0: //Falli 1
                   val[5] = val[5] == 5 ? 0 : val[5] + 1;
@@ -550,6 +558,8 @@ void deComp(String data) {
                   mode = 0;
                   modeImpostata = false;
                   timer2p.detach();
+                  stateP = true;
+                  displayWrite();
                   break;
                 case 15:
                   if (stato == false) {
@@ -559,10 +569,12 @@ void deComp(String data) {
                   }
                   break;
               }
-            } else if (mode == 1) { //Modalità orologio
-              DateTime now = Clock.now();
-              minuti = now.minute();
-              ore = now.hour();
+            }
+          } else if (mode == 1) { //Modalità orologio
+            DateTime now = Clock.now();
+            minuti = now.minute();
+            ore = now.hour();
+            if (state[16] == 1) { //Shift premuto in mod Orologio
               switch (i) {
                 case 8:
                   ore = ore >= 24 ? 0 : ore + 1;
@@ -583,14 +595,16 @@ void deComp(String data) {
                 case 14://S
                   mode = 0;
                   timer2p.detach();
+                  stateP = true;
+                  displayWrite();
                   break;
               }
             }
           }
         } else {
-          if (millis() - time_p > 1000 ) { // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA
-            if (state[16] == 0) {//Shift non premuto
-              if (mode == 0) {
+          if (millis() - time_p > 1000 ) {  // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA
+            if (mode == 0) {                //Modalità tabellone
+              if (state[16] == 0) {         //Shift non premuto in mod tabellone
                 switch (i) {
                   case 0:
                     val[0] = (val[0] + 5) >= 199 ? 0 : val[0] + 5;
@@ -611,24 +625,28 @@ void deComp(String data) {
                     val[3] = (val[3] - 5) <= 0 ? 99 : val[3] - 5;
                     break;
                   case 10:
-                    if ((val[4] + 5) >= 59) {
-                      val[3] = val[3] == 99 ? 0 : val[3] + 5;
+                    if (stato == false) {
+                      if ((val[4] + 5) >= 59) {
+                        val[3] = val[3] == 99 ? 0 : val[3] + 5;
+                      }
+                      val[4] = val[4] == 59 ? 0 : val[4] + 5;
                     }
-                    val[4] = val[4] == 59 ? 0 : val[4] + 5;
                     break;
                   case 11:
-                    if ((val[4] - 5) <= 0) {
-                      val[3] = (val[3] + 5) >= 0 ? 99 : val[3] - 5;
+                    if (stato == false) {
+                      if ((val[4] - 5) <= 0) {
+                        val[3] = (val[3] + 5) >= 0 ? 99 : val[3] - 5;
+                      }
+                      val[4] = val[4] == 0 ? 59 : val[4] - 5;
                     }
-                    val[4] = val[4] == 0 ? 59 : val[4] - 5;
                     break;
                 }
               }
-            } else {
-              if (mode == 1) { //Modalità orologio
-                DateTime now = Clock.now();
-                minuti = now.minute();
-                ore = now.hour();
+            } else if (mode == 1) { //Modalità orologio
+              DateTime now = Clock.now();
+              minuti = now.minute();
+              ore = now.hour();
+              if (state[16] == 1) { //Shift premuto in mod Orologio
                 switch (i) {
                   case 8:
                     ore = ore >= 24 ? 0 : ore + 1;
@@ -691,6 +709,16 @@ void displayPrint() {
   if (falli2.read() != val[6]) {
     falli2.write(val[6]);
   }
+}
+
+void displayWrite() {
+  pt1.write(val[0]);
+  pt2.write(val[1]);
+  periodo.write(val[2]);
+  c_m.write(val[3]);
+  c_s.write(val[4]);
+  falli1.write(val[5]);
+  falli2.write(val[6]);
 }
 
 void displayPrintOnSerial() {
