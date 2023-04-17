@@ -3,7 +3,7 @@
 
    Note
     - Comprende già le modifiche fatte: falli e time-out
-    - Inserto RTC
+    - Spostato l'RTC sul tabellone
 
    Ultima modifica il:
     25/05/2020
@@ -14,7 +14,6 @@
 #include <SPI.h>
 #include <WiFi.h>
 #include <Adafruit_MCP23017.h>
-#include <DS3231.h>
 
 //Funzioni
 String splitString(String str, char sep, int index); //Funzione: splitta le stringhe
@@ -57,24 +56,18 @@ String dataFromSerial;
 bool connesso = false;
 bool debug1 = false;
 
-//Time
-DS3231 Clock;
-String timeString;
-String timeString_p;
-bool h12;
-bool PM;
-byte minuti, ore;
-
 //Per avanzamento veloce
 long time_p;
 byte tasto_p;
+
+//Time
+String timeString;
 
 void setup() {
   initMCPs();
   initPins();
   initSerial();
   initWiFi();
-  initRTC();
 }
 void initMCPs() {
   //inizializzo gli ingressi
@@ -121,15 +114,6 @@ void initWiFi() {
   Serial.println(ssid);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-}
-
-void initRTC() {
-
-  Wire.begin();
-  Clock.setClockMode(false);
-  minuti = Clock.getMinute();
-  ore = Clock.getHour(h12, PM);
-  Serial.println(getTime());
 }
 
 void loop() {
@@ -222,17 +206,6 @@ void readButtons() {
   }
 }
 
-
-void impostaOra(String timeStr) {
-  if (timeStr != "") {
-    byte ore = splitString(timeStr, ':', 0).toInt();
-    byte minuti = splitString(timeStr, ':', 1).toInt();
-    Clock.setSecond(0);//Set the second
-    Clock.setMinute(minuti);//Set the minute
-    Clock.setHour(ore); //Set the hour
-  }
-}
-
 String formact() {
   //Prendi i valori dal globale e trasformali in una stringa
   String text = "";
@@ -240,12 +213,8 @@ String formact() {
   for (i = 0; i < 17; i++ ) {
     text += String(state[i]) + ".";
   }
-  text += getTime() + "\r";
+  text += "\r";
   return text;
-}
-
-String getTime() {
-  return String(Clock.getHour(h12, PM)) + ":" + String(Clock.getMinute());
 }
 
 bool deComp(String data) {
@@ -258,9 +227,6 @@ bool deComp(String data) {
     timeString = splitString(data, '.', 11);
   } else {
     return false;
-  }
-  if (timeString != timeString_p) {
-    impostaOra(timeString);
   }
   if (!shift) {
     if (val[10] == 0) {
