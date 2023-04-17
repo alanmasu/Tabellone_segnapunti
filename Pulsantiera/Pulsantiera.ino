@@ -6,7 +6,7 @@
     - Spostato l'RTC sul tabellone
 
    Ultima modifica il:
-    25/05/2020
+    27/05/2020
 
 */
 
@@ -19,7 +19,7 @@
 String splitString(String str, char sep, int index); //Funzione: splitta le stringhe
 
 //Costanti pin
-byte pins[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+byte pins[16] = {1, 0, 3, 2, 4, 6, 5, 7, 9, 8, 11, 10, 12, 13, 14, 15};
 
 byte shiftPin = 36;
 int shiftLed = 13;
@@ -131,7 +131,8 @@ void loop() {
     deComp(dataFromServer);
     client.stop();
     client.flush();
-      } else {
+    delay(125);
+  } else {
     reconnect();
   }
 }
@@ -192,7 +193,7 @@ void readButtons() {
   initMCPs();
   int i;
   for (i = 0; i < 13; i++) {
-    state[i] = !mcp.digitalRead(i);
+    state[i] = !mcp.digitalRead(pins[i]);
   }
   state[13] = mcp.digitalRead(13);
   state[14] = mcp.digitalRead(14);
@@ -213,7 +214,7 @@ String formact() {
   for (i = 0; i < 17; i++ ) {
     text += String(state[i]) + ".";
   }
-  text += "\r";
+  text += timeString + "\r";
   return text;
 }
 
