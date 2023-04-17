@@ -29,7 +29,7 @@ int stopLed = 14;
 int resetLed = 27;
 
 //Valori
-int val[11] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+int val[11] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 byte state[17]; //PT1+,PT1-,PT2+,PT2-,PTR,PER+,PER-,PERr,MIN+,MIN-,SEC+,SEC-,TR,P,S,R,SHIFT
 byte state_p[17];
 bool stato = false;
@@ -59,25 +59,26 @@ bool debug1 = false;
 
 //Time
 DS3231 Clock;
-byte ore;
-byte minuti;
+String timeString;
+String timeString_p;
 bool h12;
 bool PM;
+byte minuti, ore;
 
 //Per avanzamento veloce
 long time_p;
 byte tasto_p;
 
 void setup() {
-    initMCPs();
+  initMCPs();
   initPins();
   initSerial();
   initWiFi();
-initRTC();
+  initRTC();
 }
 void initMCPs() {
   //inizializzo gli ingressi
-  const int a = 0;
+  const byte a = 0;
   mcp.begin(a);
   for (byte i = 0; i < 13; i++) {
     mcp.pinMode(i, INPUT);
@@ -215,69 +216,21 @@ void readButtons() {
 
   state[16] = digitalRead(shiftPin);
   digitalWrite(shiftLed, state[16]);
-if ( val[9] == 0 && val[10] == 1) {
-    if (state[16] == 1) { //Shift
-      if (state[5] == 1) {
-        if ( state[5] != state_p[5]) { //+
-          time_p = millis();
-          tasto_p = 5;
-          if (minuti == 59) {
-            ore = ore == 24 ? 0 : ore + 1;
-          }
-          minuti = minuti == 59 ? 0 : minuti + 1;
-          impostaOra(minuti, ore);
-        } else {
-          if (millis() - time_p > 3000 && tasto_p == 5 && millis() - time_p < 20000) {
-            if ((minuti + 5) == 59 || (minuti + 5) > 59) {
-              ore = ore == 24 || ore > 24 ? 0 : ore + 1;
-            }
-            minuti = (minuti + 5) == 59 || (minuti + 5) > 59 ? 0 : minuti + 5;
-            impostaOra(minuti, ore);
-            delay(800);
-          } else if (millis() - time_p > 20000 && tasto_p == 5) {
-            ore = ore == 24 || ore > 24 ? 0 : ore + 1;
-            impostaOra(minuti, ore);
-            delay(800);
-          }
-        }
-      }
-      if (state[6] == 1) {
-        if (state[6] != state_p[6]) { //-
-          time_p = millis();
-          tasto_p = 6;
-          if (minuti == 0) {
-            ore = ore == 0 ? 24 : ore - 1;
-          }
-          minuti = minuti == 0 ? 59 : minuti - 1;
-          Serial.println("min -; min: " + String(minuti) + " ore: " + String(ore));
-          impostaOra(minuti, ore);
-        } else {
-          if (millis() - time_p > 3000 && tasto_p == 6 && millis() - time_p < 20000) {
-            if ((minuti - 5) == 0 || (minuti - 5) < 0) {
-              ore = ore == 0 || ore < 0 ? 24 : ore - 1;
-            }
-            minuti = (minuti - 5) == 0 || (minuti - 5) < 0 ? 59 : minuti - 5;
-            impostaOra(minuti, ore);
-            delay(800);
-          } else if (millis() - time_p > 20000 && tasto_p == 6) {
-            ore = ore == 24 || ore > 24 ? 0 : ore - 1;
-            impostaOra(minuti, ore);
-            delay(800);
-          }
-        }
-      }
-    }
-  }
+
   for (int i = 0; i < 16; i++) {
     state_p[i] = state[i];
   }
 }
 
 
-void impostaOra(byte minuti, byte ore) {
-  Clock.setSecond(0);//Set the second
-  Clock.setMinute(minuti);//Set the minute
-  Clock.setHour(ore); //Set the hour
+void impostaOra(String timeStr) {
+  if (timeStr != "") {
+    byte ore = splitString(timeStr, ':', 0).toInt();
+    byte minuti = splitString(timeStr, ':', 1).toInt();
+    Clock.setSecond(0);//Set the second
+    Clock.setMinute(minuti);//Set the minute
+    Clock.setHour(ore); //Set the hour
+  }
 }
 
 String formact() {
@@ -302,18 +255,34 @@ bool deComp(String data) {
     for (int i = 0; i < 11; i++) {
       val[i] = splitString(data, '.', i).toInt();
     }
-      } else {
+    timeString = splitString(data, '.', 11);
+  } else {
     return false;
   }
+  if (timeString != timeString_p) {
+    impostaOra(timeString);
+  }
   if (!shift) {
-          digitalWrite(startLed, !val[9]);
+    if (val[10] == 0) {
+      digitalWrite(startLed, !val[9]);
       digitalWrite(resetLed, !val[9]);
       digitalWrite(stopLed, val[9]);
     } else {
-            digitalWrite(startLed, !val[10]);
+      digitalWrite(startLed, 0);
+      digitalWrite(resetLed, 0);
+      digitalWrite(stopLed, 0);
+    }
+  } else {
+    if (val[9] == 0) {
+      digitalWrite(startLed, !val[10]);
       digitalWrite(resetLed, !val[10]);
       digitalWrite(stopLed, val[10]);
-      }
+    } else {
+      digitalWrite(startLed, 0);
+      digitalWrite(resetLed, 0);
+      digitalWrite(stopLed, 0);
+    }
+  }
   return true;
 }
 

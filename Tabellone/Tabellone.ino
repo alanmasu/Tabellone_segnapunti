@@ -96,6 +96,9 @@ long time_c;
 String dataFromClient = "";
 String dataFromSerial = "";
 
+//Time
+byte minuti, ore;
+
 //Per avanzamento veloce
 long time_p;
 byte tasto_p;
@@ -166,22 +169,31 @@ void initDisplays() {
 
 void initFalli() {
   mcp[mcpTimeout].pinMode(f1_1, OUTPUT);
+  mcp[mcpTimeout].pinMode(f1_2, OUTPUT);
+  mcp[mcpTimeout].pinMode(f1_3, OUTPUT);
+  mcp[mcpTimeout].pinMode(f2_1, OUTPUT);
+  mcp[mcpTimeout].pinMode(f2_2, OUTPUT);
+  mcp[mcpTimeout].pinMode(f2_3, OUTPUT);
 }
 
 void initDuePunti() {
   mcp[2].pinMode(7, OUTPUT);
   mcp[2].pinMode(15, OUTPUT);
-  //timer2p.attach(0.7, duePunti);
+  //timer2p.attach(1, duePunti);
 }
 
-void duePunti() {
-  byte stateP = !stateP;
+volatile bool stateP = 0;
+
+void IRAM_ATTR duePunti() {
+  stateP = !stateP;
   if (stateP) {
     mcp[2].digitalWrite(7, HIGH);
     mcp[2].digitalWrite(15, HIGH);
+    stateP = 1;
   } else {
     mcp[2].digitalWrite(7, LOW);
     mcp[2].digitalWrite(15, LOW);
+    stateP = 0;
   }
 }
 
@@ -345,13 +357,17 @@ String readClient() {
 }
 
 void deComp(String data) {
+  minuti = minute(now());
+  ore = hour(now());
   if (data != "") {
     for (int i = 0; i < 18; i++) {
       state[i] = splitString(data, '.', i).toInt();
     }
     String timeStr = splitString(data, '.', 17);
     if ( timeStr != "" && timeStatus() == timeNotSet) {
-      impostaOra(timeStr);
+      int oreInt = splitString(timeStr, ':', 0).toInt();
+      int minutiInt = splitString(timeStr, ':', 1).toInt();
+      impostaOra(minutiInt, oreInt);
     }
 
     for (int i = 0; i < 16; i++) {
@@ -453,18 +469,22 @@ void deComp(String data) {
                 }
                 break;
               case 5:
-                if (timeStr != "" && timeStr.length() >= 3) {
-                  impostaOra(timeStr);
+                if (mode == 1) {
+                  if (minuti == 59) {
+                    ore = ore == 24 ? 0 : ore + 1;
+                  }
+                  minuti = minuti == 59 ? 0 : minuti + 1;
+                  impostaOra(minuti, ore);
                 }
-                oraPrint();
-                oraPrintSerial();
                 break;
               case 6:
-                if (timeStr != "" && timeStr.length() >= 3) {
-                  impostaOra(timeStr);
+                if (mode == 1) {
+                  if (minuti == 0) {
+                    ore = ore == 0 ? 24 : ore - 1;
+                  }
+                  minuti = minuti == 0 ? 59 : minuti - 1;
+                  impostaOra(minuti, ore);
                 }
-                oraPrint();
-                oraPrintSerial();
                 break;
               case 7:
                 if (stato == false) {
@@ -507,42 +527,36 @@ void deComp(String data) {
             }
           }
         } else {
-          if (millis() - time_p > 3000  && i == tasto_p) { // PASSATI 5 SECONDI DALLA PRESSIONE SI SALE DE 5 ALLA VOLTA
+          if (millis() - time_p > 3000 && millis() - time_p < 15000  && i == tasto_p) { // PASSATI 5 SECONDI DALLA PRESSIONE SI SALE DE 5 ALLA VOLTA
             if (state[16] == 0) {//Shift non premuto
               switch (i) {
                 case 0:
-                  val[0] = val[0] == 199 ? 0 : val[0] + 5;
+                  val[0] = (val[0] + 5) >= 199 ? 0 : val[0] + 5;
                   break;
                 case 1:
-                  val[0] = val[0] == 0 ? 199 : val[0] - 5;
+                  val[0] = (val[0] - 5) <= 0 ? 199 : val[0] - 5;
                   break;
                 case 2:
-                  val[1] = val[1] == 199 ? 0 : val[1] + 5;
+                  val[1] = (val[1] + 5) >= 199 ? 0 : val[1] + 5;
                   break;
                 case 3:
-                  val[1] = val[1] == 0 ? 199 : val[1] - 5;
-                  break;
-                case 5:
-                  val[2] = val[2] == 9 ? 0 : val[2] + 5;
-                  break;
-                case 6:
-                  val[2] = val[2] == 0 ? 9 : val[2] - 5;
+                  val[1] = (val[1] - 5) <= 0 ? 199 : val[1] - 5;
                   break;
                 case 8:
-                  val[3] = val[3] == 99 ? 0 : val[3] + 5;
+                  val[3] = (val[3] + 5) >= 99 ? 0 : val[3] + 5;
                   break;
                 case 9:
-                  val[3] = val[3] == 0 ? 99 : val[3] - 5;
+                  val[3] = (val[3] - 5) <= 0 ? 99 : val[3] - 5;
                   break;
                 case 10:
-                  if (val[4] == 59) {
+                  if ((val[4] + 5) >= 59) {
                     val[3] = val[3] == 99 ? 0 : val[3] + 5;
                   }
                   val[4] = val[4] == 59 ? 0 : val[4] + 5;
                   break;
                 case 11:
-                  if (val[4] == 0) {
-                    val[3] = val[3] == 0 ? 99 : val[3] - 5;
+                  if ((val[4] - 5) <= 0) {
+                    val[3] = (val[3] + 5) >= 0 ? 99 : val[3] - 5;
                   }
                   val[4] = val[4] == 0 ? 59 : val[4] - 5;
                   break;
@@ -550,13 +564,73 @@ void deComp(String data) {
             } else { //Shift premuto
               switch (i) {
                 case 5:
-                  if (timeStr != "" && timeStr.length() >= 3) {
-                    impostaOra(timeStr);
+                  if (mode == 1) {
+                    if ((minuti + 5) == 59 || (minuti + 5) > 59) {
+                      ore = ore == 24 || ore > 24 ? 0 : ore + 1;
+                    }
+                    minuti = (minuti + 5) == 59 || (minuti + 5) > 59 ? 0 : minuti + 5;
+                    impostaOra(minuti, ore);
                   }
                   break;
                 case 6:
-                  if (timeStr != "" && timeStr.length() >= 3) {
-                    impostaOra(timeStr);
+                  if (mode == 1) {
+                    if ((minuti - 5) == 0 || (minuti - 5) < 0) {
+                      ore = ore == 0 || ore < 0 ? 24 : ore - 1;
+                    }
+                    minuti = (minuti - 5) == 0 || (minuti - 5) < 0 ? 59 : minuti - 5;
+                    impostaOra(minuti, ore);
+                  }
+                  break;
+              }
+            }
+            delay(500);
+          } else if (millis() - time_p >= 15000) {
+            if (state[16] == 0) {//Shift non premuto
+              switch (i) {
+                case 0:
+                  val[0] = (val[0] + 5) >= 199 ? 0 : val[0] + 5;
+                  break;
+                case 1:
+                  val[0] = (val[0] - 5) <= 0 ? 199 : val[0] - 5;
+                  break;
+                case 2:
+                  val[1] = (val[1] + 5) >= 199 ? 0 : val[1] + 5;
+                  break;
+                case 3:
+                  val[1] = (val[1] - 5) <= 0 ? 199 : val[1] - 5;
+                  break;
+                case 8:
+                  val[3] = (val[3] + 5) >= 99 ? 0 : val[3] + 5;
+                  break;
+                case 9:
+                  val[3] = (val[3] - 5) <= 0 ? 99 : val[3] - 5;
+                  break;
+                case 10:
+                  if ((val[4] + 5) >= 59) {
+                    val[3] = val[3] == 99 ? 0 : val[3] + 5;
+                  }
+                  val[4] = val[4] == 59 ? 0 : val[4] + 5;
+                  break;
+                case 11:
+                  if ((val[4] - 5) <= 0) {
+                    val[3] = (val[3] + 5) >= 0 ? 99 : val[3] - 5;
+                  }
+                  val[4] = val[4] == 0 ? 59 : val[4] - 5;
+                  break;
+              }
+            }
+            else { //Shift premuto
+              switch (i) {
+                case 5:
+                  if (mode == 1) {
+                    ore = ore == 24 || ore > 24 ? 0 : ore + 1;
+                    impostaOra(minuti, ore);
+                  }
+                  break;
+                case 6:
+                  if (mode == 1) {
+                    ore = ore == 24 || ore > 24 ? 0 : ore - 1;
+                    impostaOra(minuti, ore);
                   }
                   break;
               }
@@ -670,14 +744,21 @@ void printTimeOut() {
   }
 }
 
-String formact() { //PT1.PT2.TP.MM.SS.F1.F2.TO1.TO2.STATE
+String formact() { //PT1.PT2.TP.MM.SS.F1.F2.TO1.TO2.STATE.MODE.HH:MM
   String str = "";
   for (int i = 0; i < 9; i++) {
     str += String(val[i]) + ".";
   }
   str += String(stato) + ".";
-  str += String(mode) + "\r";
+  str += String(mode) + ".";
+  str += getTime() + "\r";
   return str;
+}
+
+String getTime() {
+  String minuto = String(minute(now()));
+  String ora = String(hour(now()));
+  return ora + ":" + minuto;
 }
 
 String sendClient(String text) {
@@ -688,13 +769,8 @@ String sendClient(String text) {
   }
 }
 
-void impostaOra(String timeStr) {
-  int Hours, Minutes;
-  if (timeStr != "") {
-    Hours = splitString(timeStr, ':', 0).toInt();
-    Minutes = splitString(timeStr, ':', 1).toInt();
-    setTime(Hours, Minutes, 1, 1, 1, 2020);
-  }
+void impostaOra(byte Minutes, byte Hours) {
+  setTime(Hours, Minutes, 1, 1, 1, 2020);
 }
 
 void tik() {
