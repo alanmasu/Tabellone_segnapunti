@@ -1,90 +1,99 @@
-/*
-   ultima modifica fatta il 12/02/2020 ore 07:26
+/* Creato il 18/02/2020
+ *  da Alan Masutti
+ * 
+ * Note
+ *  - Comprende già le modifiche fatte: falli e time-out
+ *  - Da controllare gli indirizzi I2C
+ *  
+ * Ultima modifica il:
+ *  18/02/2020
+ * 
+ */
 
-   da: Alan Masutti
-
-   Problemi riscontrati:
-
-
-   Note:
-    - Prova di inserimento della EEPROM, e powerFail da completare
-    - Prova nuovo algoritmo
-
-   Note EEPROM:
-   Address Parameter
-      0     pt1
-      1     pt2
-      2     t_g
-      3     min
-      4     sec
-      5     state
-      6     myIndex
-      7     ClientIndex
-*/
-
+#include <Ticker.h>
 #include <WiFi.h>
 #include <SPI.h>
 #include <setteSeg.h>
-#include <EEPROM.h>
 
 //Display
 setteSeg pt1;
 setteSeg pt2;
 setteSeg c_m;
 setteSeg c_s;
-//
+
+//Cifre
 digit pt1_1(0);
-digit pt1_2(9);
+digit pt1_2(8);
 //digit pt1_3();
 digit pt2_1(0);
-digit pt2_2(9);
+digit pt2_2(8);
 //digit pt2_3(9);
-digit tempo(0);
-digit c_m1(0);
-digit c_m2(9);
-digit c_s1(0);
-digit c_s2(9);
+digit periodo(0);
+digit min_1(0);
+digit min_2(8);
+digit sec_1(0);
+digit sec_2(8);
+digit falli1;
+digit falli2;
 
+//Pin per controllo falli
+int f1_1;
+int f1_2;
+int f1_3;
+int f2_1;
+int f2_2;
+int f2_3;
+
+//Moduli I/O
 Adafruit_MCP23017 mcp0;
 Adafruit_MCP23017 mcp1;
 Adafruit_MCP23017 mcp2;
 Adafruit_MCP23017 mcp3;
 Adafruit_MCP23017 mcp4;
-
-
-
-//Timer
-bool state = false;
+Adafruit_MCP23017 mcp5;
 
 //WiFi
 char ssid[] = "Tabellone";
 char pass[] = "tabellone";
 WiFiServer server(80);
-
 IPAddress ip(192, 168, 0, 80);
 IPAddress gateway(192, 168, 0, 80);
 IPAddress subnet(255, 255, 255, 0);
+WiFiClient client;
 
-//Controllo
-int val[5] = {0, 0, 0, 0, 0};
+//Timer
+Ticker crono;
 
-//Gestione errori
-int myIndex = 0;            //indice dei comandi: contiene il numero del comando che ha inviato al Server
-int serverIndex = 0;        //Indice dei comandi: contiene il numero del comando eseguito dal Server che viene ricevuto
-String buff[10];            //buffer comandi
-
-//Seriale
-bool debug = false;
-bool connesso = false;
-String toSendSerial = "";
-
-//Routines
+//Funzioni
 String splitString(String str, char sep, int index);
-void pwISR();
+
+
+//Valori
+int val[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0};
+bool stato = false;
+byte state[17]; //PT1+,PT1-,PT2+,PT2-,PTR,PER+,PER-,PERr,MIN+,MIN-,SEC+,SEC-,TR,P,S,R,SHIFT
+byte state_p[17];
+
+//Comunication
+String dataFromClient = "";
+String dataFromSerial = "";
 
 void setup() {
-  Serial.begin(115200); //COM5
-  WiFi.mode(WIFI_AP);
+  initSerial();
+  initWiFi();
+  initMCP();
+  initDigits();
+  initDisplays();
+  reset();
+}
+
+void initSerial() {
+  //Seriale
+  Serial.begin(115200); // COM5
+  Serial.println("");
+}
+
+void initWiFi() {
   WiFi.softAPConfig(ip, gateway, subnet);
   WiFi.softAP(ssid, pass);
   server.begin();
@@ -92,41 +101,71 @@ void setup() {
   Serial.print("AP IP address: ");
   Serial.println(myIP);
   Serial.println("HTTP server started");
-  pinMode(15, OUTPUT);
-  digitalWrite(15, 1);
+  pinMode(2, OUTPUT);
+  digitalWrite(2, 1);
+}
+
+void initMCP() {
+  mcp0.begin(0);
+  mcp1.begin(1);
+  mcp2.begin(2);
+  mcp3.begin(3);
+  mcp4.begin(4);
+  mcp5.begin(5);
+}
+
+void initDigits() {
+  //da vedere
+  pt1_1.begin('k', mcp0);
+  pt1_2.begin('k', mcp0);
+  pt2_1.begin('k', mcp1);
+  pt2_2.begin('k', mcp1);
+  min_1.begin('k', mcp2);
+  min_2.begin('k', mcp2);
+  sec_1.begin('k', mcp3);
+  sec_2.begin('k', mcp3);
+  falli1.begin('k', mcp4);
+  falli2.begin('k', mcp4);
+  periodo.begin('k', mcp5);
+}
+void initDisplays() {
+  pt1 = setteSeg(pt1_1, pt1_2);
+  pt2 = setteSeg(pt2_1, pt2_2);
+  c_m = setteSeg(min_1, min_2);
+  c_s = setteSeg(sec_1, sec_2);
+  pt1.begin('1');
+  pt2.begin('1');
+  c_m.begin('1');
+  c_s.begin('1');
+}
+
+void reset() {
+  pt1.write(0);
+  pt2.write(0);
+  periodo.write(0);
+  c_m.write(0);
+  c_s.write(0);
+  falli1.write(0);
+  falli2.write(0);
 }
 
 void loop() {
-  String data;
-  String data1;
-  String data2;
-  String data3;
+  readSerial();
+  if (checkConnection()) {
+    dataFromClient = readClient();
+    deComp(dataFromClient);
+//    displayPrint();
+    delay(50);
+    displayPrintOnSerial();
+    String toSend = formact();
+    sendClient("prova");
+    client.stop();
+    client.flush();
+  }
+}
 
-  WiFiClient client = server.available();
-  while (Serial.available() > 0) {
-    data = Serial.readStringUntil('\n');
-  }
-  if (data == "Sei Arduino?") {
-    Serial.print("Si sono Arduino!\n");
-    connesso = true;
-    delay(250);
-  }
-  if (data == "Disconesso") {
-    connesso = false;
-  }
-  if (data == "debug1.1") {
-    debug = true;
-    Serial.println("degug 1 attivo");
-  }
-  if (data == "debug1.0") {
-    debug = false;
-    Serial.println("degug 1 disattivo");
-  }
-  if (data == "?ip") {
-    IPAddress myIP = WiFi.softAPIP();
-    Serial.print("AP IP address: ");
-    Serial.println(myIP);
-  }
+
+bool checkConnection() {
   if (WiFi.softAPIP() != ip) {
     Serial.println("WiFi ERROR");
     WiFi.softAPConfig(ip, gateway, subnet);
@@ -138,67 +177,288 @@ void loop() {
     Serial.println("HTTP server started");
     delay(5000);
   }
-
+  client = server.available();
   if (client) {
     if (client.connected()) {
-      data = client.readStringUntil('\r');
-      if(debug == true){
-        Serial.print("data: "); Serial.println(data);
-        Serial.print("myIndex: "); Serial.println(myIndex);
-      }
-      if (data != "") {  //PROTOCOLLO: PT1.PT2.TP.MM.SS.ST.CI
-        if (debug) {
-          Serial.print("data: "); Serial.println(data);
-        }
-
-        val[0] = splitString(data, '.', 0).toInt();
-        val[1] = splitString(data, '.', 1).toInt();
-        val[2] = splitString(data, '.', 2).toInt();
-        val[3] = splitString(data, '.', 3).toInt();
-        val[4] = splitString(data, '.', 4).toInt();
-
-        toSendSerial = String(val[0]);
-        for (int i = 1; i < 5; i++) {
-          toSendSerial = toSendSerial + "." + String(val[i]);
-        }
-
-//        pt1.write(val[0]);
-//        pt2.write(val[1]);
-//        c_m.write(val[3]);
-//        c_s.write(val[4]);
-//        tempo.write(val[2]);
-
-        myIndex = (myIndex + 1) % 10;
-        if (debug) {
-          Serial.print("myIndex: "); Serial.println(myIndex);
-        }
-        String toSendClient;
-        String toSendSerial;
-
-        toSendClient = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "."
-                       + String(val[3]) + "." + String(val[4]) + "." + String(myIndex) + String('\r');
-        toSendSerial = String(val[0]) + "." + String(val[1]) + "." + String(val[2]) + "."
-                       + String(val[3]) + "." + String(val[4]) + String(".0.0.0.0\r");
-        if (debug==true) {
-          Serial.print("toSendClient: "); Serial.println(toSendClient);
-        }
-        if (connesso == true) {
-          Serial.println(toSendSerial);
-        }
-        client.println(toSendClient);
-      }
-      client.stop();
+      return true;
+    } else {
+      return false;
     }
+  } else {
+    return false;
   }
-  delay(150);
+
+}
+void readSerial() {
+  while (Serial.available() > 0) {
+    dataFromSerial = Serial.readStringUntil('\n');
+  }
+}
+String readClient() {
+  String data = client.readStringUntil('\r');
+  return data;
 }
 
+void deComp(String data) {
+  if (data != "") {
+    for (int i = 0; i < 17; i++) {
+      state[i] = splitString(data, '.', i).toInt();
+    }
+    for (int i = 0; i < 16; i++) {
+      if (state[i] == 1 && state[i] != state_p[i]) {
+        if (state[16] == 0) {//Shift non premuto
+          switch (i) {
+            case 0:
+              val[0] ++;
+              Serial.println("val[0] ++");
+              break;
+            case 1:
+              Serial.println("val[0] --");
+              val[0] --;
+              break;
+            case 2:
+              val[1] ++;
+              break;
+            case 3:
+              val[1] --;
+              break;
+            case 4:
+              if (stato == false) {
+                val[0] = 0;
+                val[1] = 0;
+              }
+              break;
+            case 5:
+              val[2] ++;
+              break;
+            case 6:
+              val[2] --;
+              break;
+            case 7:
+              if (stato == false) {
+                val[2] = 0;
+              }
+              break;
+            case 8:
+              val[3] = (val[3] + 1) % 60;
+              break;
+            case 9:
+              val[3] = (val[3] - 1) % 60;
+              break;
+            case 10:
+              if (val[4] == 59) {
+                val[3] = (val[3] + 1) % 60;
+              }
+              val[4] = (val[4] + 1) % 60;
+              break;
+            case 11:
+              if (val[4] == 0) {
+                val[3] = (val[3] - 1) % 60;
+              }
+              val[4] = (val[4] - 1) % 60;
+              break;
+            case 12:
+              if (stato == false) {
+                val[3] = 0;
+                val[4] = 0;
+              }
+              break;
+            case 13://P
+              if(val[3] != 0 || val[4] != 0){
+                crono.attach(1, tik);
+                stato = true;
+              }
+              break;
+            case 14://S
+              crono.detach();
+              stato = false;
+              break;
+            case 15:
+              if (stato == false) {
+                for (byte i = 0; i < 9; i++) {
+                  val[i] = 0;
+                }
+              }
+              break;
+          }
+        } else { //Shift premuto
+          switch (i) {
+            case 0: //Falli 1
+              val[5] = (val[5] + 1) % 6;
+              break;
+            case 1:
+              val[5] = (val[5] - 1) % 6;
+              break;
+            case 2: //Falli 2
+              val[6] = (val[6] + 1) % 6;
+              break;
+            case 3:
+              val[6] = (val[6] - 1) % 6;
+              break;
+            case 4: //Falli reset
+              if (stato == false) {
+                val[5] = 0;
+                val[6] = 0;
+              }
+              break;
+            case 5:
+              val[2] ++;
+              break;
+            case 6:
+              val[2] --;
+              break;
+            case 7:
+              if (stato == false) {
+                val[2] = 0;
+              }
+              break;
+            case 8:
+              val[7] = (val[7] + 1) % 4;
+              break;
+            case 9:
+              val[7] = (val[7] - 1) % 4;
+              break;
+            case 10:
+              val[8] = (val[8] + 1) % 4;
+              break;
+            case 11:
+              val[8] = (val[8] - 1) % 4;
+              break;
+            case 12:
+              if (stato == false) {
+                val[7] = 0;
+                val[8] = 0;
+              }
+              break;
+            case 13://P
+              if(val[3] != 0 || val[4] != 0){
+                crono.attach(1, tik);
+                stato = true;
+              }
+              break;
+            case 14://S
+              crono.detach();
+              stato = false;
+              break;
+            case 15:
+              if (stato == false) {
+                for (byte i = 0; i < 9; i++) {
+                  val[i] = 0;
+                }
+              }
+              break;
+          }
+        }
+      }
+    }
+    for (int i = 0; i < 17; i++) {
+      state_p[i] = state[i];
+    }
+  }
+}
 
+void displayPrint() {
+//  pt1.write(val[0]);
+//  pt2.write(val[1]);
+//  periodo.write(val[2]);
+//  c_m.write(val[3]);
+//  c_s.write(val[4]);
+//  falli1.write(val[5]);
+//  falli2.write(val[6]);
+//  printTimeOut();
+}
+void displayPrintOnSerial() {
+  String toSendSerial = "";
+  for (int i = 0; i < 8; i++) {
+    toSendSerial += String(val[i]) + ".";
+  }
+  toSendSerial += String(val[8]);
+  Serial.println(toSendSerial);
+}
+
+void printTimeOut() {
+  switch (val[7]) {
+    case 0:
+      mcp5.digitalWrite(f1_1, 0);
+      mcp5.digitalWrite(f1_2, 0);
+      mcp5.digitalWrite(f1_3, 0);
+      break;
+    case 1:
+      mcp5.digitalWrite(f1_1, 1);
+      mcp5.digitalWrite(f1_2, 0);
+      mcp5.digitalWrite(f1_3, 0);
+      break;
+    case 2:
+      mcp5.digitalWrite(f1_1, 1);
+      mcp5.digitalWrite(f1_2, 1);
+      mcp5.digitalWrite(f1_3, 0);
+      break;
+    case 3:
+      mcp5.digitalWrite(f1_1, 1);
+      mcp5.digitalWrite(f1_2, 1);
+      mcp5.digitalWrite(f1_3, 1);
+      break;
+  }
+  switch (val[8]) {
+    case 0:
+      mcp5.digitalWrite(f2_1, 0);
+      mcp5.digitalWrite(f2_2, 0);
+      mcp5.digitalWrite(f2_3, 0);
+      break;
+    case 1:
+      mcp5.digitalWrite(f2_1, 1);
+      mcp5.digitalWrite(f2_2, 0);
+      mcp5.digitalWrite(f2_3, 0);
+      break;
+    case 2:
+      mcp5.digitalWrite(f2_1, 1);
+      mcp5.digitalWrite(f2_2, 1);
+      mcp5.digitalWrite(f2_3, 0);
+      break;
+    case 3:
+      mcp5.digitalWrite(f2_1, 1);
+      mcp5.digitalWrite(f2_2, 1);
+      mcp5.digitalWrite(f2_3, 1);
+      break;
+  }
+}
+
+String formact() { //PT1.PT2.TP.MM.SS.F1.F2.TO1.TO2.STATE
+  String str = "";
+  for (int i = 0; i < 9; i++) {
+    str += String(val[i]) + ".";
+  }
+  str += String(stato) + "\r";
+  return str;
+}
+
+String sendClient(String text) {
+  client.println(text);
+}
+
+void tik() {
+  if (val[4] == 0) {
+    val[4] = 59;
+    val[3] --;
+  } else {
+    val[4]--;
+  }
+  if (val[3] == 0 && val[4] == 0) {
+    finishTime();
+  }
+}
+
+void finishTime() {
+  //All'evento tempo finito esegui:
+  crono.detach();
+  stato = false;
+
+}
 String splitString(String str, char sep, int index) {
-  /* str è la variabile di tipo String che contiene il valore da splittare
-     sep è ia variabile di tipo char che contiene il separatore (bisoga usare l'apostrofo: splitString(xx, 'xxx', yy)
-     index è la variabile di tipo int che contiene il campo splittato: str = "11111:22222:33333" se index= 0;
-                                                                       la funzione restituirà: "11111"
+  /* str e' la variabile di tipo String che contiene il valore da splittare
+     sep e' ia variabile di tipo char che contiene il separatore (bisoga usare l'apostrofo: splitString(xx, 'xxx', yy)
+     index e' la variabile di tipo int che contiene il campo splittato: str = "11111:22222:33333" se index= 0;
+                                                                       la funzione restituira': "11111"
   */
   int found = 0;
   int strIdx[] = { 0, -1 };
