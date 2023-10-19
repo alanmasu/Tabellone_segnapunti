@@ -14,6 +14,7 @@
 #include <SPI.h>
 #include <WiFi.h>
 #include <Adafruit_MCP23017.h>
+#include <BluetoothSerial.h>
 
 //Funzioni
 String splitString(String str, char sep, int index); //Funzione: splitta le stringhe
@@ -63,7 +64,10 @@ byte tasto_p;
 //Time
 String timeString;
 
+
+BluetoothSerial BT;
 void setup() {
+  BT.begin("Pulsantiera");
   initMCPs();
   initPins();
   initSerial();
@@ -164,7 +168,9 @@ void readSerial() {
     debug1 = data2.toInt();
     Serial.print("debug1: "); Serial.println(debug1);
     dataFromSerial = "";
-    }
+  } else if (dataFromSerial != ""){
+    BT.println(dataFromSerial);
+  }
 }
 uint32_t t0 = 0;
 void readVirtualButtons(){
