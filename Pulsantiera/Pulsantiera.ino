@@ -14,12 +14,13 @@
 #include <SPI.h>
 #include <WiFi.h>
 #include <Adafruit_MCP23017.h>
+#include <BluetoothSerial.h>
 
 //Funzioni
 String splitString(String str, char sep, int index); //Funzione: splitta le stringhe
 
 //Costanti pin
-byte pins[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+byte pins[16] = {1, 0, 3, 2, 4, 6, 5, 7, 9, 8, 11, 10, 12, 13, 14, 15};
 
 byte shiftPin = 36;
 int shiftLed = 13;
@@ -69,7 +70,10 @@ TaskHandle_t watchDog_t;
 volatile int loopFail = 0;
 long loopTime = 0;
 
+
+BluetoothSerial BT;
 void setup() {
+  BT.begin("Pulsantiera");
   initMCPs();
   initPins();
   initSerial();
@@ -198,7 +202,9 @@ void readSerial() {
     debug1 = data2.toInt();
     Serial.print("debug1: "); Serial.println(debug1);
     dataFromSerial = "";
-  } 
+  } else if (dataFromSerial != ""){
+    BT.println(dataFromSerial);
+  }
 }
 
 void readVirtualButtons(){
@@ -227,7 +233,7 @@ void readButtons() {
   initMCPs();
   int i;
   for (i = 0; i < 13; i++) {
-    state[i] = !mcp.digitalRead(i);
+    state[i] = !mcp.digitalRead(pins[i]);
   }
   state[13] = mcp.digitalRead(13);
   state[14] = mcp.digitalRead(14);
