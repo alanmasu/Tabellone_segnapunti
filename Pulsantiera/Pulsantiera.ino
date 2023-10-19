@@ -6,7 +6,7 @@
     - Spostato l'RTC sul tabellone
 
    Ultima modifica il:
-    25/05/2020
+    27/05/2020
 
 */
 
@@ -63,11 +63,18 @@ byte tasto_p;
 //Time
 String timeString;
 
+//WDT
+volatile long time_l = 0;
+TaskHandle_t watchDog_t;
+volatile int loopFail = 0;
+long loopTime = 0;
+
 void setup() {
   initMCPs();
   initPins();
   initSerial();
   initWiFi();
+  initWDT();
 }
 void initMCPs() {
   //inizializzo gli ingressi
@@ -116,7 +123,31 @@ void initWiFi() {
   Serial.println(WiFi.localIP());
 }
 
+void initWDT(){
+  xTaskCreatePinnedToCore(
+    watchDogTaskRoutine,    /* Task function. */
+    "WATCHDOD_T",           /* name of task. */
+    10000,                  /* Stack size of task */
+    NULL,                   /* parameter of the task */
+    1,                      /* priority of the task */
+    &watchDog_t,            /* Task handle to keep track of created task */
+    0);                     /* pin task to core 0 */
+}
+
+void watchDogTaskRoutine(void * pvParameters) {
+  Serial.println("WATCHDOG SERVICE IS RUNNING");
+
+  while(1){
+    if(millis() - time_l > 500 && digitalRead(2)){
+      digitalWrite(2, 0);
+      loopFail ++;
+    }
+    vTaskDelay(10);
+  }
+}
+
 void loop() {
+  loopTime = millis();
   readSerial();
   if(serial){
     readVirtualButtons();
@@ -124,16 +155,20 @@ void loop() {
     readButtons();
   }
   if (checkConnection()) {
+    time_l = millis();
     String toSend = formact();
     Serial.println(toSend);
+    Serial.println("LoopFail: " + String(loopFail));
     sendClient(toSend);
     dataFromServer = readClient();
     deComp(dataFromServer);
     client.stop();
     client.flush();
-      } else {
+    delay(150);
+  } else {
     reconnect();
   }
+  Serial.println("LoopTime: " + String(millis() - loopTime));
 }
 
 bool checkConnection() {
@@ -163,13 +198,13 @@ void readSerial() {
     debug1 = data2.toInt();
     Serial.print("debug1: "); Serial.println(debug1);
     dataFromSerial = "";
-    }
+  } 
 }
-uint32_t t0 = 0;
+
 void readVirtualButtons(){
-  if (serial == true) {
+    if (serial == true) {
     // for (byte i = 0; i < 16; i++) {
-    //   state[i] = 0;
+      //   state[i] = 0;
     // }
     // if(millis()-t0 > 1000){
     //   Serial.print("dataFromSerial: ");
@@ -213,7 +248,7 @@ String formact() {
   for (i = 0; i < 17; i++ ) {
     text += String(state[i]) + ".";
   }
-  text += "\r";
+  text += timeString + "\r";
   return text;
 }
 
