@@ -4,8 +4,10 @@
    Note
     - Comprende già le modifiche fatte: falli e time-out
     - Spostato l'RTC sul tabellone
+    - Prova anti-looping
 
    Ultima modifica il:
+    27/05/2020
     27/05/2020
 
 */
@@ -66,19 +68,21 @@ String timeString;
 
 //WDT
 volatile long time_l = 0;
-TaskHandle_t watchDog_t;
 volatile int loopFail = 0;
+TaskHandle_t watchDog_t;
+TaskHandle_t client_t;
 long loopTime = 0;
 
 
 BluetoothSerial BT;
 void setup() {
-  BT.begin("Pulsantiera");
+BT.begin("Pulsantiera");
   initMCPs();
   initPins();
   initSerial();
   initWiFi();
   initWDT();
+  initClientTask();
 }
 void initMCPs() {
   //inizializzo gli ingressi
@@ -127,7 +131,7 @@ void initWiFi() {
   Serial.println(WiFi.localIP());
 }
 
-void initWDT(){
+void initWDT() {
   xTaskCreatePinnedToCore(
     watchDogTaskRoutine,    /* Task function. */
     "WATCHDOD_T",           /* name of task. */
@@ -138,41 +142,67 @@ void initWDT(){
     0);                     /* pin task to core 0 */
 }
 
-void watchDogTaskRoutine(void * pvParameters) {
-  Serial.println("WATCHDOG SERVICE IS RUNNING");
-
-  while(1){
-    if(millis() - time_l > 500 && digitalRead(2)){
-      digitalWrite(2, 0);
-      loopFail ++;
-    }
-    vTaskDelay(10);
-  }
+void initClientTask() {
+  xTaskCreatePinnedToCore(
+    clientTaskRoutine,      /* Task function. */
+    "CLIENT_T",             /* name of task. */
+    10000,                  /* Stack size of task */
+    NULL,                   /* parameter of the task */
+    1,                      /* priority of the task */
+    &client_t,              /* Task handle to keep track of created task */
+    1);
+  Serial.println("CLIENT TASK CREATED");
 }
 
+void watchDogTaskRoutine(void * pvParameters) {
+  Serial.println("WATCHDOG SERVICE IS RUNNING");
+  while (1) {
+    Serial.println("WDT: " + String(millis() - time_l > 500 && checkConnection()) + " --> " + String(millis() - time_l));
+    if (millis() - time_l > 1000 && checkConnection()) {
+      Serial.println("WATCHDOG SERVICE IS TRIGGERING");
+      digitalWrite(2, 0);
+      vTaskDelete(client_t);
+      vTaskDelay(1500);
+      initClientTask();
+      loopFail ++;
+      time_l = millis();
+      Serial.println("time_l: " + String(time_l));
+    }
+    vTaskDelay(500);
+  }
+}
+void clientTaskRoutine(void * pvParameters) {
+  client.stop();
+  client.flush();
+  Serial.println("LOOP TASK");
+  while (1) {
+    loopTime = millis();
+    if(serial){
+      readVirtualButtons();
+    }else{
+      readButtons();
+    }
+    if (checkConnection()) {
+      time_l = millis();
+      toSend = formact();
+      Serial.println(toSend);
+      Serial.println("LoopFail: " + String(loopFail));
+      sendClient(toSend);
+      dataFromServer = readClient();
+      deComp(dataFromServer);
+      client.stop();
+      client.flush();
+      //delay(105);
+    } else {
+      reconnect();
+    }
+//    vTaskDelay(10);
+    Serial.println("LoopTime: " + String(millis() - loopTime));
+    Serial.println("clientTime: " + String(millis() - time_l));
+  }
+}
 void loop() {
-  loopTime = millis();
-  readSerial();
-  if(serial){
-    readVirtualButtons();
-  }else{
-    readButtons();
-  }
-  if (checkConnection()) {
-    time_l = millis();
-    String toSend = formact();
-    Serial.println(toSend);
-    Serial.println("LoopFail: " + String(loopFail));
-    sendClient(toSend);
-    dataFromServer = readClient();
-    deComp(dataFromServer);
-    client.stop();
-    client.flush();
-    delay(150);
-  } else {
-    reconnect();
-  }
-  Serial.println("LoopTime: " + String(millis() - loopTime));
+  
 }
 
 bool checkConnection() {
@@ -202,9 +232,9 @@ void readSerial() {
     debug1 = data2.toInt();
     Serial.print("debug1: "); Serial.println(debug1);
     dataFromSerial = "";
-  } else if (dataFromSerial != ""){
+} else if (dataFromSerial != ""){
     BT.println(dataFromSerial);
-  }
+  } 
 }
 
 void readVirtualButtons(){
@@ -222,9 +252,9 @@ void readVirtualButtons(){
       
       for (byte i = 0; i < 17; i++) {
         state[i] = splitString(dataFromSerial, '.', i).toInt();
-      }
+}
       dataFromSerial = "";
-    }
+          }
   }
 }
 
@@ -265,7 +295,7 @@ bool deComp(String data) {
     for (int i = 0; i < 11; i++) {
       val[i] = splitString(data, '.', i).toInt();
     }
-    timeString = splitString(data, '.', 11);
+    timeString = splitString(String(data), '.', 11);
   } else {
     return false;
   }
