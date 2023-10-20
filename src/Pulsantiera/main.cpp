@@ -10,7 +10,7 @@
 
 */
 
-
+#include <Arduino.h>
 #include <SPI.h>
 #include <WiFi.h>
 #include <Adafruit_MCP23017.h>
@@ -64,15 +64,8 @@ byte tasto_p;
 //Time
 String timeString;
 
-
 BluetoothSerial BT;
-void setup() {
-  BT.begin("Pulsantiera");
-  initMCPs();
-  initPins();
-  initSerial();
-  initWiFi();
-}
+
 void initMCPs() {
   //inizializzo gli ingressi
   const byte a = 0;
@@ -120,25 +113,12 @@ void initWiFi() {
   Serial.println(WiFi.localIP());
 }
 
-void loop() {
-  readSerial();
-  if(serial){
-    readVirtualButtons();
-  }else{
-    readButtons();
-  }
-  if (checkConnection()) {
-    String toSend = formact();
-    Serial.println(toSend);
-    sendClient(toSend);
-    dataFromServer = readClient();
-    deComp(dataFromServer);
-    client.stop();
-    client.flush();
-    delay(125);
-  } else {
-    reconnect();
-  }
+void setup() {
+  BT.begin("Pulsantiera");
+  initMCPs();
+  initPins();
+  initSerial();
+  initWiFi();
 }
 
 bool checkConnection() {
@@ -327,6 +307,28 @@ void reconnect() {
     Serial.println(WiFi.localIP());
   }
 }
+
+void loop() {
+  readSerial();
+  if(serial){
+    readVirtualButtons();
+  }else{
+    readButtons();
+  }
+  if (checkConnection()) {
+    String toSend = formact();
+    Serial.println(toSend);
+    sendClient(toSend);
+    dataFromServer = readClient();
+    deComp(dataFromServer);
+    client.stop();
+    client.flush();
+    delay(125);
+  } else {
+    reconnect();
+  }
+}
+
 String splitString(String str, char sep, int index) {
   /* str e' la variabile di tipo String che contiene il valore da splittare
      sep e' ia variabile di tipo char che contiene il separatore (bisoga usare l'apostrofo: splitString(xx, 'xxx', yy)

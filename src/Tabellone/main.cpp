@@ -11,8 +11,10 @@
      27/05/2020 11:36
 
 */
-
+#include <Arduino.h>
+#include <Wire.h>
 #include <setteSeg.h>
+#include <Adafruit_MCP23017.h>
 #include <Ticker.h>
 #include <WiFi.h>
 #include <SPI.h>
@@ -74,6 +76,41 @@ Ticker crono;
 
 //Funzioni
 String splitString(String str, char sep, int index);
+void initSerial();
+void initWiFi();
+void initMCP();
+void initDigits();
+void initDisplays();
+void initFalli();
+void initDuePunti();
+bool initEEPROM() ;
+void rsBackup();
+void initPowerFail();
+void powerFailTaskRoutine(void * pvParameters);
+void powerFailReset();
+bool EEPROMSave();
+void initRTC();
+void testTab();
+void readSerial();
+String readClient();
+void deComp(String data);
+String formact();
+void duePuntiWrite();
+void timeOutWrite();
+void displayPrint();
+void displayWrite();
+void displayPrintOnSerial();
+void oraPrint();
+void oraPrintOnSerial();
+void testTab();
+void clearTab();
+String getTime();
+bool checkConnection();
+void sendClient(String text);
+void impostaOra(byte minuti, byte ore);
+void tik();
+void reset();
+void finishTime();
 
 //Power Fail
 long time_s = 0;
@@ -853,7 +890,7 @@ String formact() { //PT1.PT2.TP.MM.SS.F1.F2.TO1.TO2.STATE.MODE.HH:MM
   return str;
 }
 
-String sendClient(String text) {
+void sendClient(String text) {
   if (client) {
     if (client.connected()) {
       client.println(text);
