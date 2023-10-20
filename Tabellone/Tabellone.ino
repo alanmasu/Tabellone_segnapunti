@@ -64,8 +64,8 @@ Adafruit_MCP23017 mcp[6];
 char ssid[] = "Tabellone";
 char pass[] = "tabellone";
 WiFiServer server(80);
-IPAddress ip(192, 168, 0, 80);
-IPAddress gateway(192, 168, 0, 80);
+IPAddress ip(192, 168, 4, 1);
+IPAddress gateway(192, 168, 4, 1);
 IPAddress subnet(255, 255, 255, 0);
 WiFiClient client;
 
