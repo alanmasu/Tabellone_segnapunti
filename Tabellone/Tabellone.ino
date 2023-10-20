@@ -627,7 +627,7 @@ void deComp(String data) {
                   case 10:
                     if (stato == false) {
                       if ((val[4] + 5) >= 59) {
-                        val[3] = val[3] == 99 ? 0 : val[3] + 5;
+                        val[3] = val[3] == 99 ? 0 : val[3] + 1;
                       }
                       val[4] = val[4] == 59 ? 0 : val[4] + 5;
                     }
@@ -635,7 +635,7 @@ void deComp(String data) {
                   case 11:
                     if (stato == false) {
                       if ((val[4] - 5) <= 0) {
-                        val[3] = (val[3] + 5) >= 0 ? 99 : val[3] - 5;
+                        val[3] = (val[3] + 5) >= 0 ? 99 : val[3] - 1;
                       }
                       val[4] = val[4] == 0 ? 59 : val[4] - 5;
                     }
