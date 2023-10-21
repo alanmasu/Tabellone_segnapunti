@@ -699,7 +699,7 @@ void mainProcess() {
                 }
                 break;
               case 13://Orologio
-                if (valori.stato  == stop && valori.mode != 1) {
+                if (valori.stato  == stop && valori.mode != orologio) {
                   valori.mode = orologio;
                   clearTab();
                   valori.modeImpostata  = true;
@@ -753,8 +753,9 @@ void mainProcess() {
                 valori.mode = tabellone;
                 Serial.println("STOP + SHIFT IN OROLOGIO");
                 stateP = true;
-                //                timer2p.detach();
-                //                displayWrite();
+                valori.modeImpostata = false;
+                // timer2p.detach();
+                // displayWrite();
                 displayPrintOnSerial();
                 break;
             }
