@@ -15,7 +15,7 @@
 #endif
 
 bool ESP_NOWState = false;
-bool newMessage = false;
+bool ESP_NOWConnection = false;
 unsigned long time_c = 0;
 
 //Pin
@@ -28,12 +28,18 @@ const byte resetLed = 27;
 
 //Struct per comunicazione comandi
 Comandi comandi;  //Invio dei comandi
-Comandi recv;     //DA SISTEMARE IL TIPO
+Valori recv;     //DA SISTEMARE IL TIPO
 
 //Modulo I/O
 Adafruit_MCP23017 mcp;
 
 //Implementazione di metodi di struct
+//Comandi
+Comandi::Comandi() {
+  for (byte i = 0; i < 17; i++) {
+    state[i] = 0;
+  }
+}
 void Comandi::print()const {
   for (byte i = 0; i < 16; i++) {
     Serial.print(state[i]); Serial.print(".");
@@ -43,6 +49,67 @@ void Comandi::print()const {
 void Comandi::println()const {
   print();
   Serial.println();
+}
+
+//Valori
+Valori::Valori() {
+  for (byte i = 0; i < 9; i++) {
+    val[i] = 0;
+  }
+  stato = stop;
+  mode = tabellone;
+  modeImpostata = false;
+}
+
+void Valori::print(bool whitConf)const {
+  for (byte i = 0; i < 8; i++) {
+    Serial.print(val[i]); Serial.print(".");
+  }
+  Serial.print(val[8]);
+  if (whitConf) {
+    String str = "\tStato:";
+    switch (stato) {
+      case stop:
+        str += "stop\t";
+        break;
+      case run:
+        str += "run\t";
+        break;
+    }
+    str += "Modalita': ";
+    switch (mode) {
+      case tabellone:
+        str += "tabellone\t";
+        break;
+      case orologio:
+        str += "orologio\t";
+        break;
+    }
+    str += "Mode Impostata: ";
+    str += modeImpostata;
+    Serial.print(str);
+  }
+}
+void Valori::println(bool whitConf)const {
+  print(whitConf);
+  Serial.println();
+}
+bool Valori::operator==(const Valori &val2) {
+  for (byte i = 0; i < 9; i++) {
+    if (val[i] != val2.val[i]) {
+      return false;
+    }
+  }
+  if (stato != val2.stato) {
+    return false;
+  }
+  if (mode != val2.mode) {
+    return false;
+  }
+  if (modeImpostata != val2.modeImpostata) {
+    return false;
+  }
+  return true;
 }
 
 //Dichiarazioni delle funizioni
@@ -72,7 +139,6 @@ void initMCPs() {
 }
 
 void initPins() {
-  pinMode(CONNECTION_LED_PIN, OUTPUT);
   //Shift pin
   pinMode(shiftPin, INPUT);
   pinMode(shiftLed, OUTPUT);
@@ -84,22 +150,22 @@ void initPins() {
 void initESPNOW(esp_now_peer_info_t* peerInfo) {
   WiFi.mode(WIFI_STA);
   pinMode(CONNECTION_LED_PIN, OUTPUT);
-  // Init ESP-NOW
+    // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     ESP_NOWState = false;
     return;
   }
   esp_now_register_send_cb(OnDataSent);
-  
-  memcpy(peerInfo->peer_addr, broadcastAddress, 6);  
+
+  memcpy(peerInfo->peer_addr, broadcastAddress, 6);
   peerInfo->channel = 0;
   peerInfo->encrypt = false;
   esp_err_t peer = esp_now_add_peer(peerInfo);
-  
+
   if (peer != ESP_OK) {
     Serial.print("Failed to add peer: ");
-    switch(peer){
+    switch (peer) {
       case ESP_ERR_ESPNOW_NOT_INIT:
         Serial.println("ESP_ERR_ESPNOW_NOT_INIT");
         break;
@@ -149,37 +215,33 @@ String splitString(String str, char sep, int index) {
 //ESP-NOW
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   if (status == ESP_NOW_SEND_SUCCESS) {
+    time_c = millis();
+    Serial.print("Data sent: ");
+    comandi.println();
+    ESP_NOWConnection = true;
     digitalWrite(CONNECTION_LED_PIN, HIGH);
-  }
-  else {
+  }  else {
+    //    Serial.print("Data NOT sent: ");
+    //    comandi.println();
+    ESP_NOWConnection = false;
     digitalWrite(CONNECTION_LED_PIN, LOW);
   }
 }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  // memcpy(&recv, incomingData, sizeof(recv));
-  // newMessage = true;
+  memcpy(&recv, incomingData, sizeof(recv));
+  Serial.print("Dati ricevuti: "); recv.println(true);
 }
 
 void sendViaNow() {
-  for(int i = 0; i < 16; i++) {
-    Serial.print(comandi.state[i]); Serial.print(".");
-  }
-  Serial.println(comandi.state[16]);
   if (ESP_NOWState) {
-    esp_err_t result = esp_now_send((const uint8_t*)broadcastAddress, (uint8_t *) &comandi, sizeof(Comandi));
-    if (result == ESP_OK) {
-      time_c = millis();
-    }
+    //comandi.println();
+    esp_now_send(broadcastAddress, (uint8_t *) &comandi, sizeof(comandi));
   }
 }
 
 bool checkNowConnection() {
-  if (millis() - time_c > ESP_NOW_TIMEOUT || time_c == 0) {
-      return false;
-  } else {
-    return true;
-  }
+  return ESP_NOWConnection;
 }
 
 //Core
@@ -196,12 +258,14 @@ void readSerial(String &str) {
   }
 }
 
-void evaulateSerial(const String& data) {
-  if (data == "Sei Arduino?") {
-    Serial.println("Si Sono Arduino!\n\r");
-  } else if (data != "") {
-    for (byte i = 0; i < 17; i++) {
+void evaulateSerial(const String &data) {
+  if (data != "") {
+    if (data == "Sei Arduino?") {
+      Serial.println("Si Sono Arduino!\n\r");
+    } else if (data != "") {
+      for (byte i = 0; i < 17; i++) {
         comandi.state[i] = splitString(data, '.', i).toInt();
+      }
     }
   } else {
     for (int i = 0; i < 17; i++) {
@@ -227,10 +291,28 @@ void readButtons() {
 }
 
 void evaluateData() {
-  if (newMessage) {
-    newMessage = false;
-    for (byte i = 0; i < 17; i++) {
-      Serial.print(recv.state[i]); Serial.print(".");
+  bool shift = digitalRead(shiftPin);
+  bool stato = recv.stato == run ? true : false;
+  bool mode = recv.mode == tabellone ? true : false;
+  if (!shift) {
+    if (recv.mode == tabellone) {
+      digitalWrite(startLed, !stato);
+      digitalWrite(resetLed, !stato);
+      digitalWrite(stopLed, stato);
+    } else if (recv.mode == tabellone){
+      digitalWrite(startLed, 0);
+      digitalWrite(resetLed, 0);
+      digitalWrite(stopLed, 0);
+    }
+  } else {
+    if (stato == 0) {
+      digitalWrite(startLed, !mode);
+      digitalWrite(resetLed, !mode);
+      digitalWrite(stopLed, mode);
+    } else {
+      digitalWrite(startLed, 0);
+      digitalWrite(resetLed, 0);
+      digitalWrite(stopLed, 0);
     }
   }
 }

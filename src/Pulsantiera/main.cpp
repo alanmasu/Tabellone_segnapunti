@@ -5,7 +5,7 @@
           Creato il: 06/12/2021
       Modificato il: 08/12/2021
 
-      Versione 4.21
+      Versione 5.21_p
 
       Hardware:
        - SUO MAC: ac:67:b2:3f:54:9c
@@ -16,22 +16,27 @@
        - Prima prova con file di implementazione        [WORKING] [DONE]
           - Capire perche la peer non va nelle          
             funzioni                                    [FIXED]
-       - Funziona con la versione 3.21 del tabellone    [VERSION COMPATIBILITY]
+       - Funziona con la versione 4.21 del tabellone    [VERSION COMPATIBILITY]
 
       TO DO:
        - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE   [DONE]
-       - Passaggio all'indietro dei dati                [TO DO]
-          - Costruire il tipo per passaggi all'ind.     [TO DO]
-          - Implementare la funzione di rielaborazione  [TO DO]
+       - Passaggio all'indietro dei dati                [WORKING]
+          - Costruire il tipo per passaggi all'ind.     [DONE]
+          - Implementare la funzione di rielaborazione  [DONE]
+          - Controllare i LED                           [TO DO] [HW]
        - WDT                                            [TO DO]
           - Implementare l'inizializzazione             [TO DO]
        - OTA                                            [TO DO]
+          - Implementare funzioni di connessione        [TO DO]
+          - Implementatr funzione di inizializzazione   [TO DO]
+       - Controllare le letture dei pulsanti            [TO DO] [HW]
 
 */
 
-#include <esp_now.h>
-#include <WiFi.h>
+#include <Arduino.h>
 #include <pulsantiera.h>
+#include <esp_now.h>
+
 esp_now_peer_info_t peerInfo;
 
 void setup() {
@@ -41,17 +46,17 @@ void setup() {
   initESPNOW(&peerInfo);  
   initMCPs();
   initPins();
-  // initWDT();
+  initWDT();
 }
 
 void loop() {
   String serialData;
   readSerial(serialData);
-  evaulateSerial(serialData);
+  //evaulateSerial(serialData);
   if (serialData != "") {
     evaulateSerial(serialData);
   } else {
-    readButtons();
+    // readButtons();
   }
   sendViaNow();
   if (checkNowConnection()) {
