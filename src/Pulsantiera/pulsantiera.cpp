@@ -9,20 +9,17 @@
 // uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C};
 uint8_t broadcastAddress[] = {0x7C, 0x9E, 0xBD, 0xEE, 0x8B, 0x7C};
 
-// Variable to store if sending data was successful
-String success;
-
 Comandi comandi;
-
-bool shift;
+Comandi recv;
 
 
 void initSerial(String str){
   Serial.begin(115200); // COM5
-  Serial.printf("Git commit hash: %s\n", __GIT_COMMIT__);
+  Serial.printf("Git commit hash: %s, File: %s\n", __GIT_COMMIT__, str.c_str());
 }
 
 void initESPNOW(esp_now_peer_info_t* peerInfo){
+  pinMode(CONNECTION_LED_PIN, OUTPUT);
   //Set devie as a Wi-Fi Station
   WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_ps(WIFI_PS_NONE);
@@ -52,13 +49,11 @@ void initESPNOW(esp_now_peer_info_t* peerInfo){
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  Serial.print("\r\nLast Packet Send Status:\t");
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
-  if (status == 0){
-    success = "Delivery Success :)";
+  if (status == ESP_NOW_SEND_SUCCESS){
+    digitalWrite(CONNECTION_LED_PIN, HIGH);
   }
   else{
-    success = "Delivery Fail :(";
+    digitalWrite(CONNECTION_LED_PIN, LOW);
   }
 }
 
@@ -72,16 +67,14 @@ void evaulateSerial(String data) {
   }
 }
 
-String formact() {
-  //Prendi i valori dal globale e trasformali in una stringa
-  String text = "";
-  int i;
-  for (i = 0; i < 16; i++ ) {
-    text += String(comandi.state[i]) + ".";
+void sendOnNow(){
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &comandi, sizeof(comandi));
+  if (result == ESP_OK) {
+    Serial.println("Sent with success");
   }
-  text += String(comandi.state[16]);
-  text += "\r";
-  return text;
+  else {
+    Serial.println("Error sending the data");
+  }
 }
 
 String splitString(String str, char sep, int index) {
