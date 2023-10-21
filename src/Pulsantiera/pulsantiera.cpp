@@ -1,81 +1,124 @@
 #include <Arduino.h>
 #include <esp_now.h>
-#include <esp_wifi.h>
 #include <WiFi.h>
 #include <pulsantiera.h>
 #include <git_revision.h>
+#include <Adafruit_MCP23017.h>
 
-// REPLACE WITH THE MAC Address of your receiver 
-// uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C};
+//Variabili globali
+//ESP-NOW
+//uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C};
 uint8_t broadcastAddress[] = {0x7C, 0x9E, 0xBD, 0xEE, 0x8B, 0x7C};
+bool ESP_NOWState = false;
+bool newMessage = false;
+unsigned long time_c = 0;
 
-Comandi comandi;
-Comandi recv;
+//Pin
+const byte pins[16] = {1, 0, 3, 2, 4, 6, 5, 7, 9, 8, 11, 10, 12, 13, 14, 15};
+const byte shiftPin = 36;
+const byte shiftLed = 13;
+const byte startLed = 12;
+const byte stopLed = 14;
+const byte resetLed = 27;
 
+//Struct per comunicazione comandi
+Comandi comandi;  //Invio dei comandi
+Comandi recv;     //DA SISTEMARE IL TIPO
 
-void initSerial(String str){
-  Serial.begin(115200); // COM5
-  Serial.printf("Git commit hash: %s, File: %s\n", __GIT_COMMIT__, str.c_str());
+//Modulo I/O
+Adafruit_MCP23017 mcp;
+
+//Implementazione di metodi di struct
+void Comandi::print()const {
+  for (byte i = 0; i < 16; i++) {
+    Serial.print(state[i]); Serial.print(".");
+  }
+  Serial.print(state[16]);
+}
+void Comandi::println()const {
+  print();
+  Serial.println();
 }
 
-void initESPNOW(esp_now_peer_info_t* peerInfo){
+//Dichiarazioni delle funizioni
+//Inizializzazione
+
+// void initSerial(String &title);
+// void initMCPs();
+// void initPins();
+// void initESPNOW();
+// void initWDT(); //DA IMPLEMENTARE DA ZERO
+
+void initSerial(const String &title) {
+  Serial.begin(115200); // COM5
+  Serial.printf("Git commit hash: %s, File: %s\n", __GIT_COMMIT__, title.c_str());
+}
+
+void initMCPs() {
+  //inizializzo gli ingressi
+  mcp.begin((uint8_t)0);
+  for (byte i = 0; i < 13; i++) {
+    mcp.pinMode(i, INPUT);
+    mcp.pullUp(i, HIGH);
+  }
+  mcp.pinMode(13, INPUT);
+  mcp.pinMode(14, INPUT);
+  mcp.pinMode(14, INPUT);
+}
+
+void initPins() {
   pinMode(CONNECTION_LED_PIN, OUTPUT);
-  //Set devie as a Wi-Fi Station
-  WiFi.mode(WIFI_AP_STA);
-  esp_wifi_set_ps(WIFI_PS_NONE);
-  
-  //Setto il canale 
-  //Configurazione canale WiFi
-  int32_t channel = 1;//getWiFiChannel(WIFI_SSID);
-  esp_wifi_set_promiscuous(true);
-  esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
-  esp_wifi_set_promiscuous(false);
-  
+  //Shift pin
+  pinMode(shiftPin, INPUT);
+  pinMode(shiftLed, OUTPUT);
+  pinMode(startLed, OUTPUT);
+  pinMode(stopLed, OUTPUT);
+  pinMode(resetLed, OUTPUT);
+}
+
+void initESPNOW(esp_now_peer_info_t* peerInfo) {
+  WiFi.mode(WIFI_STA);
+  pinMode(CONNECTION_LED_PIN, OUTPUT);
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
+    ESP_NOWState = false;
     return;
   }
   esp_now_register_send_cb(OnDataSent);
-  memcpy(peerInfo->peer_addr, broadcastAddress, 6);
-  peerInfo->channel = 0;  
+  
+  memcpy(peerInfo->peer_addr, broadcastAddress, 6);  
+  peerInfo->channel = 0;
   peerInfo->encrypt = false;
-  if (esp_now_add_peer(peerInfo) != ESP_OK){
-    Serial.println("Failed to add peer");
+  esp_err_t peer = esp_now_add_peer(peerInfo);
+  
+  if (peer != ESP_OK) {
+    Serial.print("Failed to add peer: ");
+    switch(peer){
+      case ESP_ERR_ESPNOW_NOT_INIT:
+        Serial.println("ESP_ERR_ESPNOW_NOT_INIT");
+        break;
+      case ESP_ERR_ESPNOW_ARG:
+        Serial.println("ESP_ERR_ESPNOW_ARG");
+        break;
+      case ESP_ERR_ESPNOW_NOT_FOUND:
+        Serial.println("ESP_ERR_ESPNOW_NOT_FOUND");
+        break;
+    }
+    ESP_NOWState = false;
     return;
   }
-  //esp_now_register_recv_cb(OnDataRecv);
-  return;
+  esp_now_register_recv_cb(OnDataRecv);
+  ESP_NOWState = true;
 }
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  if (status == ESP_NOW_SEND_SUCCESS){
-    digitalWrite(CONNECTION_LED_PIN, HIGH);
-  }
-  else{
-    digitalWrite(CONNECTION_LED_PIN, LOW);
-  }
+
+void initWDT() {
+
 }
 
-void evaulateSerial(String data) {
-  if (data == "Sei Arduino?") {
-    Serial.println("Si Sono Arduino!\n\r");
-  } else if (data != "") {
-    for (byte i = 0; i < 17; i++) {
-        comandi.state[i] = splitString(data, '.', i).toInt();
-    }
-  }
-}
-
-void sendOnNow(){
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &comandi, sizeof(comandi));
-  if (result == ESP_OK) {
-    Serial.println("Sent with success");
-  }
-  else {
-    Serial.println("Error sending the data");
-  }
-}
+//Utility
+// String splitString(String str, char sep, int index);
 
 String splitString(String str, char sep, int index) {
   /* str a' la variabile di tipo String che contiene il valore da splittare
@@ -95,4 +138,102 @@ String splitString(String str, char sep, int index) {
     }
   }
   return found > index ? str.substring(strIdx[0], strIdx[1]) : "";
+}
+
+
+//ESP-NOW
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  if (status == ESP_NOW_SEND_SUCCESS) {
+    digitalWrite(CONNECTION_LED_PIN, HIGH);
+  }
+  else {
+    digitalWrite(CONNECTION_LED_PIN, LOW);
+  }
+}
+
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  // memcpy(&recv, incomingData, sizeof(recv));
+  // newMessage = true;
+}
+
+void sendViaNow() {
+  for(int i = 0; i < 16; i++) {
+    Serial.print(comandi.state[i]); Serial.print(".");
+  }
+  Serial.println(comandi.state[16]);
+  if (ESP_NOWState) {
+    esp_err_t result = esp_now_send((const uint8_t*)broadcastAddress, (uint8_t *) &comandi, sizeof(Comandi));
+    if (result == ESP_OK) {
+      time_c = millis();
+    }
+  }
+}
+
+bool checkNowConnection() {
+  if (millis() - time_c > ESP_NOW_TIMEOUT || time_c == 0) {
+      return false;
+  } else {
+    return true;
+  }
+}
+
+//Core
+// void readSerial(String &str);
+// void evaulateSerial(String &data);
+// void readButtons();
+// evaluateData();              //DA IMPLEMENTARE DA ZERO
+// void connectionErrorHandle();
+
+void readSerial(String &str) {
+  str = "";
+  while (Serial.available() > 0) {
+    str = Serial.readStringUntil('\n');
+  }
+}
+
+void evaulateSerial(const String& data) {
+  if (data == "Sei Arduino?") {
+    Serial.println("Si Sono Arduino!\n\r");
+  } else if (data != "") {
+    for (byte i = 0; i < 17; i++) {
+        comandi.state[i] = splitString(data, '.', i).toInt();
+    }
+  } else {
+    for (int i = 0; i < 17; i++) {
+      comandi.state[i] = 0;
+    }
+  }
+}
+
+void readButtons() {
+  //Legge i pulsanti
+  //initMCPs();
+  int i;
+  for (i = 0; i < 13; i++) {
+    comandi.state[i] = !mcp.digitalRead(pins[i]);
+  }
+  comandi.state[13] = mcp.digitalRead(13);
+  comandi.state[14] = mcp.digitalRead(14);
+  comandi.state[15] = mcp.digitalRead(15);
+
+  comandi.state[16] = digitalRead(shiftPin);
+  digitalWrite(shiftLed, comandi.state[16]);
+
+}
+
+void evaluateData() {
+  if (newMessage) {
+    newMessage = false;
+    for (byte i = 0; i < 17; i++) {
+      Serial.print(recv.state[i]); Serial.print(".");
+    }
+  }
+}
+
+void connectionErrorHandle() {
+  if (millis() - time_c > ESP_NOW_TIMEOUT) {
+    Serial.println("ERRORE di CONNESSIONE.... REBOOT IN 5 SECONDI!!");
+    delay(5000);
+    ESP.restart();
+  }
 }

@@ -1,37 +1,41 @@
-/*    
- *    [TABELLONE SEGNAPUNTI WI-FI] 
- *            (tabellone)
- *    
- *    Creato il 06/12/2021
- *    Modificato il 08/12/2021
+/*
+ *     [TABELLONE SEGNAPUNTI WI-FI]
+ *             (tabellone)
  *
- *    Versione 3.21 
- *    
- *    Note:
- *     - Utilizzare nuovo protocollo ESP-NOW            [DONE]
- *     - Prima prova con file di implementazione        [WORKING]
+ *     Creato il 06/12/2021
+ *     Modificato il 08/12/2021
+ *
+ *     Versione 4.21_t
+ *
+ *     Note:
+ *      - Utilizzare nuovo protocollo ESP-NOW            [WORKING] [DONE]
+ *      - Prima prova con file di implementazione        [WORKING]
+ *      - Funziona con la versione 5.21 della puls.      [VERSION COMPATIBILITY]
  *     
- *    TO DO:
- *     - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE   [DONE]
- *     - Non passa ancora i parametri all'indietro      [TO DO]
- *     - OTA                                            [TO DO]
- *     
+ *     TO DO:
+ *      - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE   [DONE]
+ *      - Non passa ancora i parametri all'indietro      [WORKING]
+ *         - Costruire il tipo per passaggi all'ind.     [DONE]
+ *         - Modificare le mod. di BACKUP                [DONE]
+ *         - Implementare la funzione di invio dei dati  [DONE]
+ *      - OTA                                            [TO DO]
+ *         - Implementare funzioni di connessione        [TO DO]
+ *         - Implementare funzione di inizializzazione   [TO DO]        
 */
 
-#include <setteSeg.h>
-
 #include <tabellone.h>
-
-extern volatile bool mode;
+esp_now_peer_info_t peerInfo;
 extern unsigned long time_c;
 
 void setup() {
   //Initialize Serial Monitor
-  initSerial(__FILE__);
+  uint32_t time_l = millis();
+  String title = __FILE__;
+  initSerial(title);
   if (initEEPROM()) {
     rsBackup();
   }
-  initESP_NOW();
+  Serial.println("Time to restore data: " + String(millis()-time_l));
   initMCP();
   initDigits();
   initDisplays();
@@ -40,7 +44,7 @@ void setup() {
   testTab();
   displayWrite();
   //  initWiFi();
-  initESP_NOW();
+  initESP_NOW(&peerInfo);
   initPowerFail();
   initRTC();
 }
@@ -48,22 +52,22 @@ void setup() {
 void loop() {
   String serialData;
   readSerial(serialData);                           //Leggi la seriale
-  if (checkNOWConnection()) {                       //Controlli la connessione
+  if (checkNowConnection()) {                       //Controlli la connessione
     restoreTabMode();                               //Se ti trovi in mod. Orologio allora ti re-imposti a mod. Tab
     time_c = millis();                              //Salvi il timestamp per il passaggio auto da una mod all'altra
     mainProcess();                                  //Elabori i comandi ricevuti
+    sendViaNow();                                   //Invii i dati alla pulsantiera
   } else {
     automaticMode();                                //Se non sei connesso da almeno time_o ms allora entri in auto nella mod Orologio
   }
-  if (mode == 0) {                                  //Modalita' Tabellone
+  if (getMode() == tabellone) {                     //Modalita' Tabellone
     displayPrint();                                 //Scrivi i punteggi sui display
     displayPrintOnSerial();                         //Scrivi i punteggi sui display seriali (tool Visual Basic)
     timeOutWrite();                                 //Scrivi i timeout
-    delay(50);
   } else {                                          //Modalita' Orologio
     oraPrint();                                     //Scrivi l'ora sui display
     oraPrintOnSerial();                             //Scrivi l'ora sui display seriali (tool Visual Basic)
-    delay(50);
   }
-  duePuntiWrite();
+  duePuntiWrite();                                  //Scrivi i due punti
+  delay(50);
 }

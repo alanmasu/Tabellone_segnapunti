@@ -64,19 +64,19 @@ extern TaskHandle_t loopTaskHandle;       //Task handle del loop
 TaskHandle_t powerFail_t;                 //Task handle del PowerFail
 
 //Valori
-volatile int val[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0};
-volatile bool stato = false;  //Stato della modalita' di gioco: true - countdown in corso || false - countdown non in corso
-volatile bool mode = 0;       //Modalita di finzionamento: 0 - Tabellone || 1 - Orologio (o RTC o dall'accensione)
-bool modeImpostata = false;   //Per ripristino automantico della mod. tabellone alla riconnessione
+//volatile int val[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0};
+//volatile bool stato = false;  //Stato della modalita' di gioco: true - countdown in corso || false - countdown non in corso
+//volatile bool mode = 0;       //Modalita di finzionamento: 0 - Tabellone || 1 - Orologio (o RTC o dall'accensione)
+//bool modeImpostata = false;   //Per ripristino automantico della mod. tabellone alla riconnessione
+volatile Valori valori;       //Struttura che contiene i valore del tabellone
 const long time_o = 30 * 1000;//Timeout per passaggio automantico alla mod. orologio
-byte state[17];               //PT1+,PT1-,PT2+,PT2-,PTR,PER+,PER-,PERr,MIN+,MIN-,SEC+,SEC-,TR,P,S,R,SHIFT
-byte state_p[17];             //Stati vecchi dei pulsanti per fronte
 unsigned long time_c;         //Tempo dall'ultima connessione della pulsantiera
 
 //Per avanzamento veloce
 unsigned long time_p;         //Tempo dalla pressione del tasto
 
 //ESP-NOW
+uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C}; //7c:9e:bd:ee:8b:7c
 uint32_t lastMessageFromNOW = 0;  //Ultimo messaggio ricevuto
 bool ESP_NOWState = 0;            //Stato di ESP-NOW
 
@@ -87,35 +87,125 @@ byte ore;           //Ore
 bool RTC;           //Stato di configurazione RTC
 
 
+//Implementazione di metodi di struct
+//Comandi
+Comandi::Comandi() {
+  for (byte i = 0; i < 17; i++) {
+    state[i] = 0;
+  }
+}
+void Comandi::print()const {
+  for (byte i = 0; i < 16; i++) {
+    Serial.print(state[i]); Serial.print(".");
+  }
+  Serial.print(state[16]);
+}
+void Comandi::println()const {
+  print();
+  Serial.println();
+}
+
+//Valori
+Valori::Valori() {
+  for (byte i = 0; i < 9; i++) {
+    val[i] = 0;
+  }
+  stato = stop;
+  mode = tabellone;
+  modeImpostata = false;
+}
+
+void Valori::print(bool whitConf)const {
+  for (byte i = 0; i < 8; i++) {
+    Serial.print(val[i]); Serial.print(".");
+  }
+  Serial.print(val[8]);
+  if (whitConf) {
+    String str = "\tStato:";
+    switch (stato) {
+      case stop:
+        str += "stop\t";
+        break;
+      case run:
+        str += "run\t";
+        break;
+    }
+    str += "Modalita': ";
+    switch (mode) {
+      case tabellone:
+        str += "tabellone\t";
+        break;
+      case orologio:
+        str += "orologio\t";
+        break;
+    }
+    str += "Mode Impostata: ";
+    str += modeImpostata;
+    Serial.print(str);
+  }
+}
+
+void Valori::println(bool whitConf)const {
+  print(whitConf);
+  Serial.println();
+}
+
+bool Valori::operator==(const Valori &val2) {
+  for (byte i = 0; i < 9; i++) {
+    if (val[i] != val2.val[i]) {
+      return false;
+    }
+  }
+  if (stato != val2.stato) {
+    return false;
+  }
+  if (mode != val2.mode) {
+    return false;
+  }
+  if (modeImpostata != val2.modeImpostata) {
+    return false;
+  }
+  return true;
+}
+
+
 //Definizioni delle funzioni
-void initSerial(String str) {
+void initSerial(String &title) {
   Serial.begin(115200); // COM5
-  Serial.printf("Git commit hash: %s, File: %s\n", __GIT_COMMIT__, str.c_str());
+  Serial.printf("Git commit hash: %s, File: %s\n", __GIT_COMMIT__, title.c_str());
 }
 
 bool initEEPROM() {
   //EEPROM
-  return EEPROM.begin(10);
+  return EEPROM.begin(512);
 }
 
 void rsBackup() {
   //Ripristino dati dell'ultima sessione
-  for (byte i = 0; i < 9; i++) {
-    val[i] = EEPROM.readInt(i);
-  }
-  stato = EEPROM.readInt(9);
+  //  for (byte i = 0; i < 9; i++) {
+  //    valori.val[i] = EEPROM.readInt(i);
+  //  }
+  //  stato = EEPROM.readInt(9);
+  byte address = 0;
+  EEPROM.get(address, valori);
+  address += sizeof(valori);
+
 }
 
 bool EEPROMSave() {
-  for (int i = 0; i < 9; i++) {
-    EEPROM.write(i, val[i]);
-  }
-  EEPROM.write(9, stato);
+  byte address = 0;
+  //  for (int i = 0; i < 9; i++) {
+  //    EEPROM.write(i, valori.val[i]);
+  //  }
+  //  EEPROM.write(9, stato);
+  EEPROM.put(address, valori);
+  address += sizeof(valori);
   if (EEPROM.commit()) {
     return true;
   } else {
     return false;
   }
+  return true;
 }
 
 void initMCP() {
@@ -222,17 +312,19 @@ void testTab() {
 }
 
 void displayWrite() {
-  pt1.write(val[0]);
-  pt2.write(val[1]);
-  periodo.write(val[2]);
-  c_m.write(val[3]);
-  c_s.write(val[4]);
-  falli1.write(val[5]);
-  falli2.write(val[6]);
+  pt1.write(valori.val[0]);
+  pt2.write(valori.val[1]);
+  periodo.write(valori.val[2]);
+  c_m.write(valori.val[3]);
+  c_s.write(valori.val[4]);
+  falli1.write(valori.val[5]);
+  falli2.write(valori.val[6]);
 }
 
-bool initESP_NOW() {
+bool initESP_NOW(esp_now_peer_info_t* peerInfo) {
   pinMode(CONNECTION_LED, OUTPUT);
+  pinMode(13, OUTPUT);
+  digitalWrite(13, LOW);
   //Set device as a Wi-Fi Station
   WiFi.mode(WIFI_AP_STA);
 
@@ -251,6 +343,27 @@ bool initESP_NOW() {
     Serial.println("Error initializing ESP-NOW");
     ESP_NOWState = false;
     return false;
+  }
+  esp_now_register_send_cb(OnDataSent);
+
+  memcpy(peerInfo->peer_addr, broadcastAddress, 6);
+  peerInfo->channel = 0;
+  peerInfo->encrypt = false;
+  esp_err_t peer = esp_now_add_peer(peerInfo);
+
+  if (peer != ESP_OK) {
+    Serial.print("Failed to add peer: ");
+    switch (peer) {
+      case ESP_ERR_ESPNOW_NOT_INIT:
+        Serial.println("ESP_ERR_ESPNOW_NOT_INIT");
+        break;
+      case ESP_ERR_ESPNOW_ARG:
+        Serial.println("ESP_ERR_ESPNOW_ARG");
+        break;
+      case ESP_ERR_ESPNOW_NOT_FOUND:
+        Serial.println("ESP_ERR_ESPNOW_NOT_FOUND");
+        break;
+    }
   }
   // Once ESPNow is successfully Init, we will register for recv CB to
   // get recv packer info
@@ -281,6 +394,14 @@ void initRTC() {
 }
 
 //---------------------------------------------------------------------------------------------ESP-NOW
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  if (status == ESP_NOW_SEND_SUCCESS) {
+    digitalWrite(13,HIGH);
+  } else {
+    digitalWrite(13,LOW);
+  }
+}
+
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&comandi, incomingData, sizeof(comandi));
   lastMessageFromNOW = millis();
@@ -290,11 +411,17 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   // Serial.println();
 }
 
-bool checkNOWConnection() {
+void sendViaNow() {
+  if (ESP_NOWState) {
+    esp_now_send(broadcastAddress, (uint8_t *) &valori, sizeof(valori));
+  }
+}
+
+bool checkNowConnection() {
   bool nowState = millis() - lastMessageFromNOW > ESP_NOW_MAX_TIMEOUT ? false : true;
-  if(nowState){
+  if (nowState) {
     digitalWrite(CONNECTION_LED, HIGH);
-  }else{
+  } else {
     digitalWrite(CONNECTION_LED, LOW);
   }
   return nowState;
@@ -341,7 +468,7 @@ String splitString(String str, char sep, int index) {
   /* str a' la variabile di tipo String che contiene il valore da splittare
      sep a' ia variabile di tipo char che contiene il separatore (bisoga usare l'apostrofo: splitString(xx, 'xxx', yy)
      index a' la variabile di tipo int che contiene il campo splittato: str = "11111:22222:33333" se index= 0;
-                                                                        la funzione restituira': "11111"
+                                                                       la funzione restituira': "11111"
   */
   int found = 0;
   int strIdx[] = { 0, -1 };
@@ -376,13 +503,13 @@ String getTime() {
 }
 
 void tik() {
-  if (val[4] == 0) {
-    val[4] = 59;
-    val[3] --;
+  if (valori.val[4] == 0) {
+    valori.val[4] = 59;
+    valori.val[3] --;
   } else {
-    val[4]--;
+    valori.val[4]--;
   }
-  if (val[3] == 0 && val[4] == 0) {
+  if (valori.val[3] == 0 && valori.val[4] == 0) {
     finishTime();
   }
 }
@@ -403,16 +530,16 @@ void tik() {
 
 
 //CORE
-void readSerial(String &str){
+void readSerial(String & str) {
   str = "";
-  while(Serial.available()>0){
+  while (Serial.available() > 0) {
     str = Serial.readStringUntil('\n');
   }
 }
 
 void restoreTabMode() {
-  if (modeImpostata == false && mode == 1) {
-    mode = 0;
+  if (valori.modeImpostata  == false && valori.mode == orologio) {
+    valori.mode = tabellone;
     stateP = HIGH;
     timer2p.detach();
     displayWrite();
@@ -425,83 +552,83 @@ void mainProcess() {
     if (comandi.state[i] == 1 ) {
       if (comandi.state[i] != comandi_p.state[i]) {
         time_p = millis();
-        if (mode == 0) {
+        if (valori.mode == tabellone) {
           if (comandi.state[16] == 0) {//Shift non premuto in mod tab
             switch (i) {
               case 0:
-                val[0] = val[0] == 199 ? 0 : val[0] + 1;
+                valori.val[0] = valori.val[0] == 199 ? 0 : valori.val[0] + 1;
                 break;
               case 1:
-                val[0] = val[0] == 0 ? 199 : val[0] - 1;
+                valori.val[0] = valori.val[0] == 0 ? 199 : valori.val[0] - 1;
                 break;
               case 2:
-                val[1] = val[1] == 199 ? 0 : val[1] + 1;
+                valori.val[1] = valori.val[1] == 199 ? 0 : valori.val[1] + 1;
                 break;
               case 3:
-                val[1] = val[1] == 0 ? 199 : val[1] - 1;
+                valori.val[1] = valori.val[1] == 0 ? 199 : valori.val[1] - 1;
                 break;
               case 4:
-                if (stato == false) {
-                  val[0] = 0;
-                  val[1] = 0;
+                if (valori.stato  == stop) {
+                  valori.val[0] = 0;
+                  valori.val[1] = 0;
                 }
                 break;
               case 5:
-                val[2] = val[2] == 9 ? 0 : val[2] + 1;
+                valori.val[2] = valori.val[2] == 9 ? 0 : valori.val[2] + 1;
                 break;
               case 6:
-                val[2] = val[2] == 0 ? 9 : val[2] - 1;
+                valori.val[2] = valori.val[2] == 0 ? 9 : valori.val[2] - 1;
                 break;
               case 7:
-                if (stato == false) {
-                  val[2] = 0;
+                if (valori.stato  == stop) {
+                  valori.val[2] = 0;
                 }
                 break;
               case 8:
-                val[3] = val[3] == 99 ? 0 : val[3] + 1;
+                valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 1;
                 break;
               case 9:
-                val[3] = val[3] == 0 ? 99 : val[3] - 1;
+                valori.val[3] = valori.val[3] == 0 ? 99 : valori.val[3] - 1;
                 break;
               case 10:
-                if (stato == false) {
-                  if (val[4] == 59) {
-                    val[3] = val[3] == 99 ? 0 : val[3] + 1;
+                if (valori.stato  == stop) {
+                  if (valori.val[4] == 59) {
+                    valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 1;
                   }
-                  val[4] = val[4] == 59 ? 0 : val[4] + 1;
+                  valori.val[4] = valori.val[4] == 59 ? 0 : valori.val[4] + 1;
                 }
                 break;
               case 11:
-                if (stato == false) {
-                  if (val[4] == 0) {
-                    val[3] = val[3] == 0 ? 99 : val[3] - 1;
+                if (valori.stato  == stop) {
+                  if (valori.val[4] == 0) {
+                    valori.val[3] = valori.val[3] == 0 ? 99 : valori.val[3] - 1;
                   }
-                  val[4] = val[4] == 0 ? 59 : val[4] - 1;
+                  valori.val[4] = valori.val[4] == 0 ? 59 : valori.val[4] - 1;
                 }
                 break;
               case 12:
-                if (stato == false) {
-                  val[3] = 0;
-                  val[4] = 0;
+                if (valori.stato  == stop) {
+                  valori.val[3] = 0;
+                  valori.val[4] = 0;
                 }
                 break;
               case 13://P
-                if (val[3] != 0 || val[4] != 0) {
+                if (valori.val[3] != 0 || valori.val[4] != 0) {
                   crono.attach(1, tik);
                   timer2p.attach(0.5, duePunti);
-                  stato = true;
+                  valori.stato = run;
                 }
                 break;
               case 14://S
                 crono.detach();
                 timer2p.detach();
                 stateP = true;
-                stato = false;
+                valori.stato = stop;
                 break;
               case 15:
-                if (stato == false) {
+                if (valori.stato == stop) {
                   for (byte i = 0; i < 9; i++) {
-                    val[i] = 0;
+                    valori.val[i] = 0;
                   }
                 }
                 break;
@@ -509,93 +636,93 @@ void mainProcess() {
           } else { //Shift Premuto in mod. tab
             switch (i) {
               case 0: //Falli 1
-                val[5] = val[5] == 5 ? 0 : val[5] + 1;
+                valori.val[5] = valori.val[5] == 5 ? 0 : valori.val[5] + 1;
                 break;
               case 1:
-                val[5] = val[5] == 0 ? 5 : val[5] - 1;
+                valori.val[5] = valori.val[5] == 0 ? 5 : valori.val[5] - 1;
                 break;
               case 2: //Falli 2
-                val[6] = val[6] == 5 ? 0 : val[6] + 1;
+                valori.val[6] = valori.val[6] == 5 ? 0 : valori.val[6] + 1;
                 break;
               case 3:
-                val[6] = val[6] == 0 ? 5 : val[6] - 1;
+                valori.val[6] = valori.val[6] == 0 ? 5 : valori.val[6] - 1;
                 break;
               case 4: //Falli reset
-                if (stato == false) {
-                  val[5] = 0;
-                  val[6] = 0;
+                if (valori.stato  == stop) {
+                  valori.val[5] = 0;
+                  valori.val[6] = 0;
                 }
                 break;
               case 5:
-                val[2] = val[2] == 9 ? 0 : val[2] + 1;
+                valori.val[2] = valori.val[2] == 9 ? 0 : valori.val[2] + 1;
                 break;
               case 6:
-                val[2] = val[2] == 0 ? 9 : val[2] - 1;
+                valori.val[2] = valori.val[2] == 0 ? 9 : valori.val[2] - 1;
                 break;
               case 7:
-                if (stato == false) {
-                  val[2] = 0;
+                if (valori.stato  == stop) {
+                  valori.val[2] = 0;
                 }
                 break;
               case 8:
-                val[7] = val[7] == 3 ? 0 : val[7] + 1;
+                valori.val[7] = valori.val[7] == 3 ? 0 : valori.val[7] + 1;
                 crono.detach();
                 timer2p.detach();
-                stato = false;
+                valori.stato  = stop;
                 stateP = 1;
                 break;
               case 9:
-                val[7] = val[7] == 0 ? 3 : val[7] - 1;
+                valori.val[7] = valori.val[7] == 0 ? 3 : valori.val[7] - 1;
                 crono.detach();
                 timer2p.detach();
-                stato = false;
+                valori.stato  = stop;
                 stateP = 1;
                 break;
               case 10:
-                val[8] = val[8] == 3 ? 0 : val[8] + 1;
+                valori.val[8] = valori.val[8] == 3 ? 0 : valori.val[8] + 1;
                 crono.detach();
                 timer2p.detach();
-                stato = false;
+                valori.stato  = stop;
                 stateP = 1;
                 break;
               case 11:
-                val[8] = val[8] == 0 ? 3 : val[8] - 1;
+                valori.val[8] = valori.val[8] == 0 ? 3 : valori.val[8] - 1;
                 crono.detach();
                 timer2p.detach();
-                stato = false;
+                valori.stato  = stop;
                 stateP = 1;
                 break;
               case 12:
-                if (stato == false) {
-                  val[7] = 0;
-                  val[8] = 0;
+                if (valori.stato  == stop) {
+                  valori.val[7] = 0;
+                  valori.val[8] = 0;
                 }
                 break;
               case 13://Orologio
-                if (stato == false && mode != 1) {
-                  mode = 1;
+                if (valori.stato  == stop && valori.mode != 1) {
+                  valori.mode = orologio;
                   clearTab();
-                  modeImpostata = true;
+                  valori.modeImpostata  = true;
                   timer2p.attach(0.5, duePunti);
                 }
                 break;
               case 14://Tabellone
-                mode = 0;
-                modeImpostata = false;
+                valori.mode = tabellone;
+                valori.modeImpostata  = false;
                 timer2p.detach();
                 stateP = true;
                 displayWrite();
                 break;
               case 15:
-                if (stato == false) {
+                if (valori.stato  == stop) {
                   for (byte i = 0; i < 9; i++) {
-                    val[i] = 0;
+                    valori.val[i] = 0;
                   }
                 }
                 break;
             }
           }
-        } else if (mode == 1) { //Modalità orologio
+        } else if (valori.mode == orologio) { //Modalità orologio
           if (RTC) {
             DateTime now = Clock.now();
             minuti = now.minute();
@@ -623,7 +750,7 @@ void mainProcess() {
                 impostaOra(minuti, ore);
                 break;
               case 14://S
-                mode = 0;
+                valori.mode = tabellone;
                 Serial.println("STOP + SHIFT IN OROLOGIO");
                 stateP = true;
                 //                timer2p.detach();
@@ -634,47 +761,47 @@ void mainProcess() {
           }
         }
       } else {
-        if (millis() - time_p > 2000 ) {  // PASSATI 2 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA
-          if (mode == 0) {                //Modalità tabellone
+        if (millis() - time_p > 1000 ) {  // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA
+          if (valori.mode == tabellone) {                //Modalità tabellone
             if (comandi.state[16] == 0) {         //Shift non premuto in mod tabellone
               switch (i) {
                 case 0:
-                  val[0] = (val[0] + 5) >= 199 ? 0 : val[0] + 5;
+                  valori.val[0] = (valori.val[0] + 5) >= 199 ? 0 : valori.val[0] + 5;
                   break;
                 case 1:
-                  val[0] = (val[0] - 5) <= 0 ? 199 : val[0] - 5;
+                  valori.val[0] = (valori.val[0] - 5) <= 0 ? 199 : valori.val[0] - 5;
                   break;
                 case 2:
-                  val[1] = (val[1] + 5) >= 199 ? 0 : val[1] + 5;
+                  valori.val[1] = (valori.val[1] + 5) >= 199 ? 0 : valori.val[1] + 5;
                   break;
                 case 3:
-                  val[1] = (val[1] - 5) <= 0 ? 199 : val[1] - 5;
+                  valori.val[1] = (valori.val[1] - 5) <= 0 ? 199 : valori.val[1] - 5;
                   break;
                 case 8:
-                  val[3] = (val[3] + 5) >= 99 ? 0 : val[3] + 5;
+                  valori.val[3] = (valori.val[3] + 5) >= 99 ? 0 : valori.val[3] + 5;
                   break;
                 case 9:
-                  val[3] = (val[3] - 5) <= 0 ? 99 : val[3] - 5;
+                  valori.val[3] = (valori.val[3] - 5) <= 0 ? 99 : valori.val[3] - 5;
                   break;
                 case 10:
-                  if (stato == false) {
-                    if ((val[4] + 5) >= 59) {
-                      val[3] = val[3] == 99 ? 0 : val[3] + 1;
+                  if (valori.stato  == stop) {
+                    if ((valori.val[4] + 5) >= 59) {
+                      valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 5;
                     }
-                    val[4] = val[4] == 59 ? 0 : val[4] + 5;
+                    valori.val[4] = valori.val[4] == 59 ? 0 : valori.val[4] + 5;
                   }
                   break;
                 case 11:
-                  if (stato == false) {
-                    if ((val[4] - 5) <= 0) {
-                      val[3] = (val[3] + 5) >= 0 ? 99 : val[3] - 1;
+                  if (valori.stato  == stop) {
+                    if ((valori.val[4] - 5) <= 0) {
+                      valori.val[3] = (valori.val[3] + 5) >= 0 ? 99 : valori.val[3] - 5;
                     }
-                    val[4] = val[4] == 0 ? 59 : val[4] - 5;
+                    valori.val[4] = valori.val[4] == 0 ? 59 : valori.val[4] - 5;
                   }
                   break;
               }
             }
-          } else if (mode == 1) { //Modalità orologio
+          } else if (valori.mode == orologio) { //Modalità orologio
             if (RTC) {
               DateTime now = Clock.now();
               minuti = now.minute();
@@ -699,7 +826,7 @@ void mainProcess() {
                   impostaOra(minuti, ore);
                   break;
                 case 14://S
-                  mode = 0;
+                  valori.mode = tabellone;
                   Serial.println("STOP + SHIFT IN OROLOGIO");
                   //                  timer2p.detach();
                   //                  displayWrite();
@@ -719,39 +846,43 @@ void mainProcess() {
 }
 
 void automaticMode() {
-  if (millis() - time_c > time_o && mode != 1) {
-    mode = 1;
+  if (millis() - time_c > time_o && valori.mode != orologio && valori.stato != run) {
+    valori.mode = orologio;
     timer2p.attach(0.5, duePunti);
     clearTab();
   }
 }
 
+Mode getMode() {
+  return valori.mode;
+}
+
 void displayPrint() {
-  if (pt1.read() != val[0]) {
-    pt1.write(val[0]);
+  if (pt1.read() != valori.val[0]) {
+    pt1.write(valori.val[0]);
   }
-  if (pt2.read() != val[1]) {
-    pt2.write(val[1]);
+  if (pt2.read() != valori.val[1]) {
+    pt2.write(valori.val[1]);
   }
-  if (periodo.read() != val[2]) {
-    periodo.write(val[2]);
+  if (periodo.read() != valori.val[2]) {
+    periodo.write(valori.val[2]);
   }
-  if (c_m.read() != val[3]) {
-    c_m.write(val[3]);
+  if (c_m.read() != valori.val[3]) {
+    c_m.write(valori.val[3]);
   }
-  if (c_s.read() != val[4]) {
-    c_s.write(val[4]);
+  if (c_s.read() != valori.val[4]) {
+    c_s.write(valori.val[4]);
   }
-  if (falli1.read() != val[5]) {
-    falli1.write(val[5]);
+  if (falli1.read() != valori.val[5]) {
+    falli1.write(valori.val[5]);
   }
-  if (falli2.read() != val[6]) {
-    falli2.write(val[6]);
+  if (falli2.read() != valori.val[6]) {
+    falli2.write(valori.val[6]);
   }
 }
 
 void timeOutWrite() {
-  switch (val[7]) {
+  switch (valori.val[7]) {
     case 0:
       mcp[mcpTimeout].digitalWrite(f1_1, 0);
       mcp[mcpTimeout].digitalWrite(f1_2, 0);
@@ -773,7 +904,7 @@ void timeOutWrite() {
       mcp[mcpTimeout].digitalWrite(f1_3, 1);
       break;
   }
-  switch (val[8]) {
+  switch (valori.val[8]) {
     case 0:
       mcp[mcpTimeout].digitalWrite(f2_1, 0);
       mcp[mcpTimeout].digitalWrite(f2_2, 0);
@@ -800,9 +931,9 @@ void timeOutWrite() {
 void displayPrintOnSerial() {
   String toSendSerial = "";
   for (int i = 0; i < 8; i++) {
-    toSendSerial += String(val[i]) + ".";
+    toSendSerial += String(valori.val[i]) + ".";
   }
-  toSendSerial += String(val[8]);
+  toSendSerial += String(valori.val[8]);
   Serial.println(toSendSerial);
 }
 
@@ -840,8 +971,8 @@ void oraPrintOnSerial() {
     for (int i = 0; i < 3; i++) {
       toSendSerial += "-.";
     }
-    toSendSerial += String((int)(millis() * 2.7E-7)) + ".";
-    toSendSerial += String((int)(millis() * 16.6E-6));
+    toSendSerial += String(((int)(millis() *  2.7E-7)) % 23) + ".";
+    toSendSerial += String(((int)(millis() * 16.6E-6)) % 60);
     for (int i = 0; i < 4; i++) {
       toSendSerial += ".-";
     }
@@ -859,5 +990,5 @@ void finishTime() {
   stateP = true;
   crono.detach();
   timer2p.detach();
-  stato = false;
+  valori.stato  = stop;
 }
