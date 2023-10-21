@@ -5,7 +5,7 @@
       Creato il 09/12/2021
       Modificato il 09/12/2021
 
-      Versione 5.21_t
+      Versione 6.23_t
 
       Note:
        - Utilizzare nuovo protocollo ESP-NOW            [WORKING] [DONE]
@@ -45,7 +45,8 @@ void setup() {
   initDuePunti();
   testTab();
   displayWrite();
-  //  initWiFi();
+  initWiFi();
+  initOTA();
   initESP_NOW(&peerInfo);
   initPowerFail();
   initRTC();
@@ -71,5 +72,6 @@ void loop() {
     oraPrintOnSerial();                             //Scrivi l'ora sui display seriali (tool Visual Basic)
   }
   duePuntiWrite();                                  //Scrivi i due punti
+  serverLoop();                                     //Loop del WebServer
   delay(50);
 }

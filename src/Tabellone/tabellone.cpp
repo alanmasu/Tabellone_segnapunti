@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <Ticker.h>
 #include <SPI.h>
 #include <EEPROM.h>
@@ -68,12 +69,12 @@ TaskHandle_t powerFail_t;                 //Task handle del PowerFail
 //volatile bool stato = false;  //Stato della modalita' di gioco: true - countdown in corso || false - countdown non in corso
 //volatile bool mode = 0;       //Modalita di finzionamento: 0 - Tabellone || 1 - Orologio (o RTC o dall'accensione)
 //bool modeImpostata = false;   //Per ripristino automantico della mod. tabellone alla riconnessione
-volatile Valori valori;       //Struttura che contiene i valore del tabellone
-const long time_o = 30 * 1000;//Timeout per passaggio automantico alla mod. orologio
-unsigned long time_c;         //Tempo dall'ultima connessione della pulsantiera
+Valori valori;                  //Struttura che contiene i valore del tabellone
+const long time_o = 30 * 1000;  //Timeout per passaggio automantico alla mod. orologio
+unsigned long time_c;           //Tempo dall'ultima connessione della pulsantiera
 
 //Per avanzamento veloce
-unsigned long time_p;         //Tempo dalla pressione del tasto
+unsigned long time_p;           //Tempo dalla pressione del tasto
 
 //ESP-NOW
 uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C}; //7c:9e:bd:ee:8b:7c
@@ -85,6 +86,10 @@ RTC_DS3231 Clock;   //Clock di sistema collegato in I2C
 byte minuti;        //Minuti
 byte ore;           //Ore
 bool RTC;           //Stato di configurazione RTC
+
+//WiFi
+char ssid[] = "Tabellone";
+char pass[] = "Tabellone";
 
 
 //Implementazione di metodi di struct
@@ -322,12 +327,64 @@ void displayWrite() {
   falli2.write(valori.val[6]);
 }
 
+void initWiFi(){
+  
+  //Set device as a Wi-Fi Station
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(ssid, pass);
+  Serial.println("WiFi AP started");
+  Serial.println(WiFi.softAPIP());
+  Serial.println(WiFi.macAddress());
+
+}
+
+void initOTA() {
+  // Port defaults to 3232
+  ArduinoOTA.setPort(3232);
+
+  // Hostname defaults to esp3232-[MAC]
+  // ArduinoOTA.setHostname("Tabellone");
+
+  // No authentication by default
+  // ArduinoOTA.setPassword("admin");
+
+  // Password can be set with it's md5 value as well
+  // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
+  // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
+
+  ArduinoOTA
+    .onStart([]() {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        type = "filesystem";
+
+      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+      Serial.println("Start updating " + type);
+    })
+    .onEnd([]() {
+      Serial.println("\nEnd");
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    })
+    .onError([](ota_error_t error) {
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
+
+  ArduinoOTA.begin();
+}
+
 bool initESP_NOW(esp_now_peer_info_t* peerInfo) {
   pinMode(CONNECTION_LED, OUTPUT);
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
-  //Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_AP_STA);
 
   //Disabilito il controllo potenza WiFi
   esp_wifi_set_ps(WIFI_PS_NONE);
@@ -509,6 +566,11 @@ void tik() {
   if (valori.val[3] == 0 && valori.val[4] == 0) {
     finishTime();
   }
+}
+
+//----------------------------------------------------------------------------------- OTA
+void serverLoop() {
+  ArduinoOTA.handle();
 }
 
 //----------------------------------------------------------------------------------- CORE
