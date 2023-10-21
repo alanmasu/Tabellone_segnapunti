@@ -35,6 +35,12 @@ void initMCPs();
 void initPins();
 void initESPNOW(esp_now_peer_info_t* peerInfo);
 void initWDT();
+void initWiFi();
+void initOTA();
+
+//WiFi
+bool checkWiFiConnection();
+void reconnectWiFi();
 
 //Utility
 String splitString(String str, char sep, int index);
@@ -44,6 +50,9 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len);
 void sendViaNow();
 bool checkNowConnection();
+
+//OTA
+void serverLoop();
 
 //Core
 void resetWDT();
