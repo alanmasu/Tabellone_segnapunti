@@ -1,16 +1,8 @@
 #ifndef __TABELLONE_H__
 #define __TABELLONE_H__
 #include <Arduino.h>
-#include <WiFi.h>
-#include <Ticker.h>
-#include <SPI.h>
-#include <EEPROM.h>
-#include <RTClib.h>
 #include <esp_now.h>
-#include <esp_bt_main.h>
-#include <esp_bt.h>
-#include <esp_system.h>
-#include <setteSeg.h> 
+
 
 //DEFINIZIONE COSTANTI
 #define CONNECTION_LED 2
@@ -19,11 +11,28 @@
 //typedef e struct
 typedef struct Comandi {
   bool state[17];
+  Comandi();
+  void print()const;
+  void println()const;
 } Stati;
+
+typedef enum {tabellone, orologio} Mode;
+typedef enum {stop, run} Stato;
+
+typedef struct Valori {
+  byte val[9];
+  Stato stato;
+  Mode mode;
+  bool modeImpostata;
+  Valori();
+  void print(bool whitConf = false)const;
+  void println(bool whitConf = false)const;
+  bool operator==(const Valori &val2);
+} Valori;
 
 //Testate funzioni
 //Ininizializzazioni
-void initSerial(String str);
+void initSerial(String &title);
 //EEPROM
 bool initEEPROM();
 void rsBackup();
@@ -39,15 +48,16 @@ void reset();
 void clearTab();
 void testTab();
 void displayWrite();
-
 //void initWiFi();
-bool initESP_NOW();
+bool initESP_NOW(esp_now_peer_info_t* peerInfo);
 void initPowerFail();
 void initRTC();
 
 //ESP-NOW
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len);
-bool checkNOWConnection();
+void sendViaNow();
+bool checkNowConnection();
 
 //PowerFail
 void powerFailTaskRoutine(void * pvParameters);
@@ -63,6 +73,7 @@ void readSerial(String &str);
 void restoreTabMode();
 void mainProcess();
 void automaticMode();
+Mode getMode();
 void displayPrint();
 void timeOutWrite();
 void displayPrintOnSerial();
