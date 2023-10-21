@@ -144,12 +144,10 @@ void Valori::print(bool whitConf)const {
     Serial.print(str);
   }
 }
-
 void Valori::println(bool whitConf)const {
   print(whitConf);
   Serial.println();
 }
-
 bool Valori::operator==(const Valori &val2) {
   for (byte i = 0; i < 9; i++) {
     if (val[i] != val2.val[i]) {
@@ -181,13 +179,16 @@ bool initEEPROM() {
 }
 
 void rsBackup() {
-  //Ripristino dati dell'ultima sessione
-  //  for (byte i = 0; i < 9; i++) {
-  //    valori.val[i] = EEPROM.readInt(i);
-  //  }
-  //  stato = EEPROM.readInt(9);
   byte address = 0;
   EEPROM.get(address, valori);
+  if( valori.stato != stop || valori.stato != run){
+    valori.stato = stop;
+    EEPROMSave();
+  }
+  if( valori.mode != tabellone || valori.mode != orologio){
+    valori.mode = tabellone;
+    EEPROMSave();
+  }
   address += sizeof(valori);
 
 }
@@ -405,10 +406,6 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&comandi, incomingData, sizeof(comandi));
   lastMessageFromNOW = millis();
-  // for(int i = 0; i < 17; i++){
-  //   Serial.print(comandi.state[i]);
-  // }
-  // Serial.println();
 }
 
 void sendViaNow() {

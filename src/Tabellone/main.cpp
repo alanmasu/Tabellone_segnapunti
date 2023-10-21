@@ -1,26 +1,28 @@
 /*
- *     [TABELLONE SEGNAPUNTI WI-FI]
- *             (tabellone)
- *
- *     Creato il 06/12/2021
- *     Modificato il 08/12/2021
- *
- *     Versione 4.21_t
- *
- *     Note:
- *      - Utilizzare nuovo protocollo ESP-NOW            [WORKING] [DONE]
- *      - Prima prova con file di implementazione        [WORKING]
- *      - Funziona con la versione 5.21 della puls.      [VERSION COMPATIBILITY]
- *     
- *     TO DO:
- *      - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE   [DONE]
- *      - Non passa ancora i parametri all'indietro      [WORKING]
- *         - Costruire il tipo per passaggi all'ind.     [DONE]
- *         - Modificare le mod. di BACKUP                [DONE]
- *         - Implementare la funzione di invio dei dati  [DONE]
- *      - OTA                                            [TO DO]
- *         - Implementare funzioni di connessione        [TO DO]
- *         - Implementare funzione di inizializzazione   [TO DO]        
+      [TABELLONE SEGNAPUNTI WI-FI]
+              (tabellone)
+
+      Creato il 09/12/2021
+      Modificato il 09/12/2021
+
+      Versione 5.21_t
+
+      Note:
+       - Utilizzare nuovo protocollo ESP-NOW            [WORKING] [DONE]
+       - Prima prova con file di implementazione        [WORKING]
+       - Funziona con la versione 5.21 della puls.      [VERSION COMPATIBILITY]
+       
+      TO DO:
+       - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE   [DONE]
+       - Non passa ancora i parametri all'indietro      [WORKING]
+          - Costruire il tipo per passaggi all'ind.     [DONE]
+          - Modificare le mod. di BACKUP                [DONE]
+             - Ripristino di default                    [ONLY TO TRY]
+          - Implementare la funzione di invio dei dati  [DONE]
+       - OTA                                            [TO DO]
+          - Implementare funzioni di connessione        [TO DO]
+          - Implementare funzione di inizializzazione   [TO DO]
+          
 */
 
 #include <tabellone.h>
