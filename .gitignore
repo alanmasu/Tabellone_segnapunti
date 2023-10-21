@@ -6,3 +6,4 @@
 .vscode/
 git_revision.h
 include/hardware.h
+upload_extra_config.ini
