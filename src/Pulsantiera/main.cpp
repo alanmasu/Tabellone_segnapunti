@@ -50,6 +50,8 @@ void setup() {
   initMCPs();
   initPins();
   initWDT();
+  initWiFi();
+  initOTA();
 }
 
 void loop() {
@@ -67,4 +69,9 @@ void loop() {
     connectionErrorHandle();      //Gestisci l'errore di connessione
   }
   delay(150);
+  if(checkWiFiConnection()){
+    serverLoop();
+  }else{
+    reconnectWiFi();
+  }
 }
