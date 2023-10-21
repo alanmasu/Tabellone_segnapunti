@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <esp_now.h>
+#include <esp_int_wdt.h>
+#include <esp_task_wdt.h>
 #include <WiFi.h>
 #include <pulsantiera.h>
 #include <git_revision.h>
@@ -28,10 +30,13 @@ const byte resetLed = 27;
 
 //Struct per comunicazione comandi
 Comandi comandi;  //Invio dei comandi
-Valori recv;     //DA SISTEMARE IL TIPO
+Valori recv;      //DA SISTEMARE IL TIPO
 
 //Modulo I/O
 Adafruit_MCP23017 mcp;
+
+//Modalità seriale
+bool serialModeEnable = true;
 
 //Implementazione di metodi di struct
 //Comandi
@@ -45,6 +50,7 @@ void Comandi::print()const {
     Serial.print(state[i]); Serial.print(".");
   }
   Serial.print(state[16]);
+
 }
 void Comandi::println()const {
   print();
@@ -185,7 +191,8 @@ void initESPNOW(esp_now_peer_info_t* peerInfo) {
 
 
 void initWDT() {
-
+  esp_int_wdt_init();                           //Inizializzo l'interrupt WDT
+  esp_task_wdt_init(ESP_T_WDT_TIMEOUT, true);   //Inizializzo il task WDT
 }
 
 //Utility
@@ -216,8 +223,8 @@ String splitString(String str, char sep, int index) {
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   if (status == ESP_NOW_SEND_SUCCESS) {
     time_c = millis();
-    Serial.print("Data sent: ");
-    comandi.println();
+    //    Serial.print("Data sent: ");
+    //    comandi.println();
     ESP_NOWConnection = true;
     digitalWrite(CONNECTION_LED_PIN, HIGH);
   }  else {
@@ -230,12 +237,12 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&recv, incomingData, sizeof(recv));
-  Serial.print("Dati ricevuti: "); recv.println(true);
+  //Serial.print("Dati ricevuti: "); recv.println(true);
 }
 
 void sendViaNow() {
   if (ESP_NOWState) {
-    //comandi.println();
+    comandi.println();
     esp_now_send(broadcastAddress, (uint8_t *) &comandi, sizeof(comandi));
   }
 }
@@ -245,11 +252,17 @@ bool checkNowConnection() {
 }
 
 //Core
+// void resetWDT();
 // void readSerial(String &str);
 // void evaulateSerial(String &data);
 // void readButtons();
-// evaluateData();              //DA IMPLEMENTARE DA ZERO
+// void evaluateData();              //DA IMPLEMENTARE DA ZERO
+// bool serialMode();
 // void connectionErrorHandle();
+
+void resetWDT(){
+  esp_task_wdt_reset();
+}
 
 void readSerial(String &str) {
   str = "";
@@ -262,16 +275,26 @@ void evaulateSerial(const String &data) {
   if (data != "") {
     if (data == "Sei Arduino?") {
       Serial.println("Si Sono Arduino!\n\r");
-    } else if (data != "") {
-      for (byte i = 0; i < 17; i++) {
+    } else if (data == "serialON") {
+      serialModeEnable = true;
+    } else if (data == "serialOFF") {
+      serialModeEnable = false;
+    } else {
+      if (serialModeEnable) {
+        for (byte i = 0; i < 17; i++) {
         comandi.state[i] = splitString(data, '.', i).toInt();
       }
+      }
     }
-  } else {
+  } else if(data == "" && serialModeEnable){
     for (int i = 0; i < 17; i++) {
       comandi.state[i] = 0;
     }
   }
+}
+
+bool serialMode(){
+  return serialModeEnable;
 }
 
 void readButtons() {
@@ -296,10 +319,14 @@ void evaluateData() {
   bool mode = recv.mode == tabellone ? true : false;
   if (!shift) {
     if (recv.mode == tabellone) {
-      digitalWrite(startLed, !stato);
+      if (recv.val[3] != 0 || recv.val[4] != 0) {
+        digitalWrite(startLed, !stato);
+      } else {
+        digitalWrite(startLed, LOW);
+      }
       digitalWrite(resetLed, !stato);
       digitalWrite(stopLed, stato);
-    } else if (recv.mode == tabellone){
+    } else if (recv.mode == tabellone) {
       digitalWrite(startLed, 0);
       digitalWrite(resetLed, 0);
       digitalWrite(stopLed, 0);

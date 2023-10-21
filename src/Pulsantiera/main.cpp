@@ -2,13 +2,13 @@
        [TABELLONE SEGNAPUNTI WI-FI]
               (pulsantiera)
 
-          Creato il: 06/12/2021
-      Modificato il: 08/12/2021
+          Creato il: 09/12/2021
+      Modificato il: 09/12/2021
 
-      Versione 5.21_p
+      Versione 6.21_p
 
       Hardware:
-       - SUO MAC: ac:67:b2:3f:54:9c
+       - SUO MAC:           ac:67:b2:3f:54:9c
        - MAC a cui inviare: 7c:9e:bd:ee:8b:7c
 
       Note:
@@ -16,20 +16,23 @@
        - Prima prova con file di implementazione        [WORKING] [DONE]
           - Capire perche la peer non va nelle          
             funzioni                                    [FIXED]
-       - Funziona con la versione 4.21 del tabellone    [VERSION COMPATIBILITY]
+       - Accoppiata con la versione 5.21 del tabellone  [VERSION COMPATIBILITY]
 
       TO DO:
        - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE   [DONE]
        - Passaggio all'indietro dei dati                [WORKING]
           - Costruire il tipo per passaggi all'ind.     [DONE]
           - Implementare la funzione di rielaborazione  [DONE]
-          - Controllare i LED                           [TO DO] [HW]
-       - WDT                                            [TO DO]
-          - Implementare l'inizializzazione             [TO DO]
+          - Controllare i LED                           [TO TRY] [HW]
+          - Modificare l'accensione di START solo se
+            il crono lo permette                        [TO TRY] [HW]
+       - WDT                                            [WORKING]
+          - Implementare l'inizializzazione             [DONE]
        - OTA                                            [TO DO]
           - Implementare funzioni di connessione        [TO DO]
           - Implementatr funzione di inizializzazione   [TO DO]
-       - Controllare le letture dei pulsanti            [TO DO] [HW]
+       - Controllare le letture dei pulsanti            [TO TRY] [HW]
+       - Sistemare gesitone mod. seriale                [WORKING]
 
 */
 
@@ -51,18 +54,17 @@ void setup() {
 
 void loop() {
   String serialData;
-  readSerial(serialData);
-  //evaulateSerial(serialData);
-  if (serialData != "") {
-    evaulateSerial(serialData);
-  } else {
-    // readButtons();
+  resetWDT();
+  readSerial(serialData);         //Leggi la seriale
+  evaulateSerial(serialData);     //Leggi i pulsanti virtuali (Tool VisualBasic)
+  if (!serialMode()) {            //Se la modalità seriale non è attiva
+    readButtons();                //Leggi i pulsanti hardwere
   }
-  sendViaNow();
-  if (checkNowConnection()) {
-    evaluateData();
-  } else {
-    connectionErrorHandle();
+  sendViaNow();                   //Invii i dati letti al Tabellone
+  if (checkNowConnection()) {     //Se ti sono arrivati dati da poco
+    evaluateData();               //Intrepreti i dati ricevuti
+  } else {                        //Altrimenti
+    connectionErrorHandle();      //Gestisci l'errore di connessione
   }
   delay(150);
 }

@@ -5,6 +5,7 @@
 
 #define CONNECTION_LED_PIN 2
 #define ESP_NOW_TIMEOUT 10 * 1000UL //10 secondi
+#define ESP_T_WDT_TIMEOUT 10 //10 SECONTI PER RESETTARE IL T WDT
 
 typedef struct Comandi {
   bool state[17];
@@ -45,8 +46,10 @@ void sendViaNow();
 bool checkNowConnection();
 
 //Core
+void resetWDT();
 void readSerial(String &str);
 void evaulateSerial(const String &data);
+bool serialMode();
 void readButtons();
 void evaluateData();
 void connectionErrorHandle();
