@@ -48,8 +48,6 @@ void reset();
 void clearTab();
 void testTab();
 void displayWrite();
-void initWiFi();
-void initOTA();
 bool initESP_NOW(esp_now_peer_info_t* peerInfo);
 void initPowerFail();
 void initRTC();
@@ -82,6 +80,5 @@ void oraPrint();
 void oraPrintOnSerial();
 void duePuntiWrite();
 void finishTime();
-void serverLoop();
 
 #endif
