@@ -2,33 +2,12 @@
 #define __TABELLONE_H__
 #include <Arduino.h>
 #include <esp_now.h>
+#include <common.h>
 
 
 //DEFINIZIONE COSTANTI
 #define CONNECTION_LED 2
 #define ESP_NOW_MAX_TIMEOUT 3 * 1000UL //3 secondi
-
-//typedef e struct
-typedef struct Comandi {
-  bool state[17];
-  Comandi();
-  void print()const;
-  void println()const;
-} Stati;
-
-typedef enum {tabellone, orologio, OTA} Mode;
-typedef enum {stop, run} Stato;
-
-typedef struct Valori {
-  byte val[9];
-  Stato stato;
-  Mode mode;
-  bool modeImpostata;
-  Valori();
-  void print(bool whitConf = false)const;
-  void println(bool whitConf = false)const;
-  bool operator==(const Valori &val2);
-} Valori;
 
 //Testate funzioni
 //Ininizializzazioni

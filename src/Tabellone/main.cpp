@@ -26,6 +26,8 @@
 */
 
 #include <tabellone.h>
+#include <common.h>
+
 #include "server.h"
 esp_now_peer_info_t peerInfo;
 extern unsigned long time_c;

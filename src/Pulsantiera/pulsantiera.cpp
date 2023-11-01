@@ -7,6 +7,7 @@
 #include <pulsantiera.h>
 #include <git_revision.h>
 #include <Adafruit_MCP23017.h>
+#include <common.h>
 
 //Variabili globali
 //ESP-NOW

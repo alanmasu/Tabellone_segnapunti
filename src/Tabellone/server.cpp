@@ -55,6 +55,6 @@ void initServer(){
   }
 }
 
-inline void serverLoop() {
+void serverLoop() {
   myWebServer.run();
 }
