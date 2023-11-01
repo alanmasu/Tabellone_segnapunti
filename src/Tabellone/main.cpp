@@ -63,13 +63,18 @@ void loop() {
   } else {
     automaticMode();                                //Se non sei connesso da almeno time_o ms allora entri in auto nella mod Orologio
   }
-  if (getMode() == tabellone) {                     //Modalita' Tabellone
-    displayPrint();                                 //Scrivi i punteggi sui display
-    displayPrintOnSerial();                         //Scrivi i punteggi sui display seriali (tool Visual Basic)
-    timeOutWrite();                                 //Scrivi i timeout
-  } else {                                          //Modalita' Orologio
-    oraPrint();                                     //Scrivi l'ora sui display
-    oraPrintOnSerial();                             //Scrivi l'ora sui display seriali (tool Visual Basic)
+  switch (getMode()) {                     
+    case tabellone:                                 //Modalita' Tabellone
+      displayPrint();                                 //Scrivi i punteggi sui display
+      displayPrintOnSerial();                         //Scrivi i punteggi sui display seriali (tool Visual Basic)
+      timeOutWrite();                                 //Scrivi i timeout
+      break;
+    case orologio:                                  //Modalita' Orologio
+      oraPrint();                                     //Scrivi l'ora sui display
+      oraPrintOnSerial();                             //Scrivi l'ora sui display seriali (tool Visual Basic)
+      break;
+    case OTA:
+      break;
   }
   duePuntiWrite();                                  //Scrivi i due punti
   serverLoop();                                     //Loop del WebServer
