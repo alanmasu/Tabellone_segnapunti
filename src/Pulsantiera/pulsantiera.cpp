@@ -7,6 +7,7 @@
 #include <pulsantiera.h>
 #include <git_revision.h>
 #include <Adafruit_MCP23017.h>
+#include <common.h>
 #include <hardware.h>
 
 // REPLACE WITH THE MAC Address of your receiver 
