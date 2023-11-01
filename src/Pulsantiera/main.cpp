@@ -3,9 +3,6 @@
               (pulsantiera)
 
           Creato il: 09/12/2021
-      Modificato il: 09/12/2021
-
-      Versione 6.21_p
 
       Hardware:
        - SUO MAC:           ac:67:b2:3f:54:9c
@@ -16,7 +13,6 @@
        - Prima prova con file di implementazione        [WORKING] [DONE]
           - Capire perche la peer non va nelle          
             funzioni                                    [FIXED]
-       - Accoppiata con la versione 5.21 del tabellone  [VERSION COMPATIBILITY]
 
       TO DO:
        - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE   [DONE]
@@ -28,9 +24,7 @@
             il crono lo permette                        [TO TRY] [HW]
        - WDT                                            [WORKING]
           - Implementare l'inizializzazione             [DONE]
-       - OTA                                            [TO DO]
-          - Implementare funzioni di connessione        [TO DO]
-          - Implementatr funzione di inizializzazione   [TO DO]
+       - OTA                                            [NOT to Implement]
        - Controllare le letture dei pulsanti            [TO TRY] [HW]
        - Sistemare gesitone mod. seriale                [WORKING]
 

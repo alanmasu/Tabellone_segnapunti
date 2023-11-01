@@ -3,26 +3,32 @@
               (tabellone)
 
       Creato il 09/12/2021
-      Modificato il 09/12/2021
-
-      Versione 6.23_t
 
       Note:
-       - Utilizzare nuovo protocollo ESP-NOW            [WORKING] [DONE]
-       - Prima prova con file di implementazione        [WORKING]
-       - Funziona con la versione 5.21 della puls.      [VERSION COMPATIBILITY]
+        - Utilizzare nuovo protocollo ESP-NOW             [WORKING] [DONE]
+        - Prima prova con file di implementazione         [WORKING] [DONE]                     
        
       TO DO:
-       - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE   [DONE]
-       - Non passa ancora i parametri all'indietro      [WORKING]
-          - Costruire il tipo per passaggi all'ind.     [DONE]
-          - Modificare le mod. di BACKUP                [DONE]
-             - Ripristino di default                    [ONLY TO TRY]
-          - Implementare la funzione di invio dei dati  [DONE]
-       - OTA                                            [TO DO]
-          - Implementare funzioni di connessione        [TO DO]
-          - Implementare funzione di inizializzazione   [TO DO]
-          
+        - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE    [DONE]
+        - Non passa ancora i parametri all'indietro       [WORKING]
+            - Costruire il tipo per passaggi all'ind.     [DONE]
+            - Modificare le mod. di BACKUP                [DONE]
+              - Ripristino di default                     [ONLY TO TRY]
+            - Implementare la funzione di invio dei dati  [DONE]
+        - Libreria setteSeg                               [TO DO] [NEW LIBRARY]
+            - Modificare le librerie per scrivere char    [TO DO] 
+              sui display anche char
+        - OTA                                             [WORK IN PROGRESS]
+            - Implementare funzioni di connessione        [DONE]
+            - Implementare funzione di inizializzazione   [DONE]
+            - Inserire le funzioni di handle per l'OTA    [DONE]
+            - Inserire la combinazione di tasti per l'OTA [TO DO]
+            - Inserire il WebServer da FileSystem         [TO DO]   
+            - Scrivere sui display la modalita'           [NEED NEW LIBRARY]                     
+        - Modalita CRONOMETRO                             [TO DO]
+            - Decidere la combinazione di tasti           [TO DO]
+            - Implementare la funzione di cronometro      [TO DO]
+            - Scrivere sui display la modalita'           [NEED NEW LIBRARY]                     
 */
 
 #include <tabellone.h>
