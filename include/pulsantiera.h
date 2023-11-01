@@ -2,6 +2,7 @@
 #define __PULSANTIERA_H__
 
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <esp_now.h>
 #include <common.h>
 
@@ -34,7 +35,9 @@ void sendViaNow();
 bool checkNowConnection();
 
 //OTA
-void serverLoop();
+inline void serverLoop() {
+  ArduinoOTA.handle();
+}
 
 //Core
 void resetWDT();
