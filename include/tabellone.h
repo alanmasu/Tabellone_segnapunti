@@ -16,7 +16,7 @@ typedef struct Comandi {
   void println()const;
 } Stati;
 
-typedef enum {tabellone, orologio} Mode;
+typedef enum {tabellone, orologio, OTA} Mode;
 typedef enum {stop, run} Stato;
 
 typedef struct Valori {
