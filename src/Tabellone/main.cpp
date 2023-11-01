@@ -73,5 +73,5 @@ void loop() {
   }
   duePuntiWrite();                                  //Scrivi i due punti
   serverLoop();                                     //Loop del WebServer
-  delay(50);
+  delay(150);
 }
