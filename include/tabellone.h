@@ -52,11 +52,14 @@ void restoreTabMode();
 void mainProcess();
 void automaticMode();
 Mode getMode();
+void setMode(Mode mode);
 void displayPrint();
 void timeOutWrite();
 void displayPrintOnSerial();
 void oraPrint();
 void oraPrintOnSerial();
+void OTAPrint();
+void OTAPrintOnSerial();
 void duePuntiWrite();
 void finishTime();
 
