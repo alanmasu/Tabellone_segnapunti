@@ -12,6 +12,16 @@ Valori::Valori() {
   modeImpostata = false;
 }
 
+Valori& Valori::operator=(const Valori &val2){
+  for (byte i = 0; i < 9; i++) {
+    val[i] = val2.val[i];
+  }
+  stato = val2.stato;
+  mode = val2.mode;
+  modeImpostata = val2.modeImpostata;
+  return *this;
+}
+
 void Valori::print(bool whitConf)const {
   for (byte i = 0; i < 8; i++) {
     Serial.print(val[i]); Serial.print(".");
