@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
-//#include <ArduinoOTA.h>
+#include "server.h"
 #include <Ticker.h>
 #include <SPI.h>
 #include <EEPROM.h>
@@ -254,60 +254,6 @@ void displayWrite() {
   falli2.write(valori.val[6]);
 }
 
-// void initWiFi(){
-  
-//   //Set device as a Wi-Fi Station
-//   WiFi.mode(WIFI_AP_STA);
-//   WiFi.softAP(ssid, pass);
-  // Serial.println("WiFi AP started");
-//   Serial.println(WiFi.softAPIP());
-//   Serial.println(WiFi.macAddress());
-
-// }
-
-void initOTA() {
-  // Port defaults to 3232
-  // ArduinoOTA.setPort(3232);
-
-  // // Hostname defaults to esp3232-[MAC]
-  // // ArduinoOTA.setHostname("Tabellone");
-
-  // // No authentication by default
-  // // ArduinoOTA.setPassword("admin");
-
-  // // Password can be set with it's md5 value as well
-  // // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
-  // // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
-
-  // ArduinoOTA
-  //   .onStart([]() {
-  //     String type;
-  //     if (ArduinoOTA.getCommand() == U_FLASH)
-  //       type = "sketch";
-  //     else // U_SPIFFS
-  //       type = "filesystem";
-
-  //     // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-  //     Serial.println("Start updating " + type);
-  //   })
-  //   .onEnd([]() {
-  //     Serial.println("\nEnd");
-  //   })
-  //   .onProgress([](unsigned int progress, unsigned int total) {
-  //     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  //   })
-  //   .onError([](ota_error_t error) {
-  //     Serial.printf("Error[%u]: ", error);
-  //     if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-  //     else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-  //     else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-  //     else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-  //     else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  //   });
-
-  // ArduinoOTA.begin();
-}
-
 bool initESP_NOW(esp_now_peer_info_t* peerInfo) {
   pinMode(CONNECTION_LED, OUTPUT);
   pinMode(13, OUTPUT);
@@ -536,6 +482,7 @@ void restoreTabMode() {
 }
 
 void mainProcess() {
+  bool isOTAcmd = comandi.state[13] && comandi.state[14] && comandi.state[15];
   for (byte i = 0; i < 16; i++) {
     if (comandi.state[i] == 1 ) {
       if (comandi.state[i] != comandi_p.state[i]) {
@@ -716,10 +663,7 @@ void mainProcess() {
             minuti = now.minute();
             ore = now.hour();
           }
-          Serial.print("OROLOGIO i: "); Serial.print(i);
-          Serial.print("\tShift: "); Serial.println(comandi.state[16]);
           if (comandi.state[16] == 1) { //Shift premuto in mod Orologio
-            Serial.print("SHIFT IN OROLOGIO e i: "); Serial.println(i);
             switch (i) {
               case 8:
                 ore = ore >= 24 ? 0 : ore + 1;
@@ -750,9 +694,12 @@ void mainProcess() {
           }
         }
       } else {
-        if (millis() - time_p > 1000 ) {  // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA
-          if (valori.mode == tabellone) {                //Modalità tabellone
-            if (comandi.state[16] == 0) {         //Shift non premuto in mod tabellone
+        if (millis() - time_p > 1000 ) {          // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA
+          if (valori.mode == tabellone) {         // Modalità tabellone
+            if (isOTAcmd) {
+              enteringOtaMode();
+              valori.mode = OTA;
+            } else if (comandi.state[16] == 0) {  // Shift non premuto in mod tabellone
               switch (i) {
                 case 0:
                   valori.val[0] = (valori.val[0] + 5) >= 199 ? 0 : valori.val[0] + 5;
@@ -796,7 +743,7 @@ void mainProcess() {
               minuti = now.minute();
               ore = now.hour();
             }
-            if (comandi.state[16] == 1) { //Shift premuto in mod Orologio
+            if (comandi.state[16] == 1) {       //Shift premuto in mod Orologio
               switch (i) {
                 case 8:
                   ore = ore >= 24 ? 0 : ore + 1;
@@ -817,14 +764,14 @@ void mainProcess() {
                 case 14://S
                   valori.mode = tabellone;
                   Serial.println("STOP + SHIFT IN OROLOGIO");
-                  //                  timer2p.detach();
-                  //                  displayWrite();
+                  // timer2p.detach();
+                  // displayWrite();
                   displayPrintOnSerial();
                   break;
               }
             }
           }
-          delay(500);
+          // delay(500);
         }
       }
     }
@@ -844,6 +791,10 @@ void automaticMode() {
 
 Mode getMode() {
   return valori.mode;
+}
+
+void setMode(Mode mode) {
+  valori.mode = mode;
 }
 
 void displayPrint() {
@@ -967,6 +918,10 @@ void oraPrintOnSerial() {
     }
     Serial.println(toSendSerial);
   }
+}
+
+void OTAPrintOnSerial(){
+  Serial.println("-.-.-.ot.a.-.-.-.-");
 }
 
 void duePuntiWrite() {
