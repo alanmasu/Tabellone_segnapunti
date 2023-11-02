@@ -17,6 +17,7 @@
             - Modificare le mod. di BACKUP                [DONE]
               - Ripristino di default                     [ONLY TO TRY]
             - Implementare la funzione di invio dei dati  [DONE]
+            - CORREGGERE AVAZAMENTO VELOCE DEI SECONDI    [TO DO] [!!!IMPORTANT!!!]
         - Libreria setteSeg                               [TO DO] [NEW LIBRARY]
             - Modificare le librerie per scrivere char    [TO DO] 
               sui display anche char
