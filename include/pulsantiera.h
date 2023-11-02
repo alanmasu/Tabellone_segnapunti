@@ -18,12 +18,18 @@ void initMCPs();
 void initPins();
 void initESPNOW(esp_now_peer_info_t* peerInfo);
 void initWDT();
-void initWiFi();
-void initOTA();
 
 //WiFi
+void initWiFi();
 bool checkWiFiConnection();
 void reconnectWiFi();
+void handleWiFiLed();
+
+//OTA
+void initOTA();
+void OTALoop();
+bool getWifiInitialized();
+void exitOtaMode();
 
 //Utility
 String splitString(String str, char sep, int index);
@@ -34,11 +40,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len);
 void sendViaNow();
 bool checkNowConnection();
 
-//OTA
-inline void serverLoop() {
-  ArduinoOTA.handle();
-}
-
 //Core
 void resetWDT();
 void readSerial(String &str);
@@ -46,6 +47,8 @@ void evaulateSerial(const String &data);
 bool serialMode();
 void readButtons();
 void evaluateData();
+Mode getMode();
 void connectionErrorHandle();
+//void waitNewData();
 
 #endif
