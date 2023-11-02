@@ -24,7 +24,10 @@
             il crono lo permette                        [TO TRY] [HW]
        - WDT                                            [WORKING]
           - Implementare l'inizializzazione             [DONE]
-       - OTA                                            [NOT to Implement]
+       - OTA                                            [TO DO]
+          - Implementare l'OTA                          [WORKING IN PROGRESS]
+          - Spostare il codice file                     [TO DO]
+      
        - Controllare le letture dei pulsanti            [TO TRY] [HW]
        - Sistemare gesitone mod. seriale                [WORKING]
 
@@ -33,6 +36,7 @@
 #include <Arduino.h>
 #include <pulsantiera.h>
 #include <esp_now.h>
+#include <common.h>
 
 esp_now_peer_info_t peerInfo;
 
@@ -44,8 +48,6 @@ void setup() {
   initMCPs();
   initPins();
   initWDT();
-  // initWiFi();
-  // initOTA();
 }
 
 void loop() {
@@ -56,16 +58,25 @@ void loop() {
   if (!serialMode()) {            //Se la modalità seriale non è attiva
     readButtons();                //Leggi i pulsanti hardwere
   }
-  sendViaNow();                   //Invii i dati letti al Tabellone
-  if (checkNowConnection()) {     //Se ti sono arrivati dati da poco
-    evaluateData();               //Intrepreti i dati ricevuti
-  } else {                        //Altrimenti
-    connectionErrorHandle();      //Gestisci l'errore di connessione
+  if(getMode() != OTA){           //Se il tabellone non e' in modalita' OTA
+    sendViaNow();                 //Invii i dati letti al Tabellone
+    if (checkNowConnection()) {   //Se ti sono arrivati dati da poco
+      evaluateData();             //Intrepreti i dati ricevuti
+    } else {                      //Altrimenti
+      connectionErrorHandle();    //Gestisci l'errore di connessione
+    }
+    delay(150);
+  }else{                          //Se il tabellone e' in modalita' OTA
+    if(!getWifiInitialized()){    //Se il WiFi non e' inizializzato
+      initWiFi();                 //Inizializza il WiFi
+      initOTA();                  //Inizializza l'OTA
+    }
+    if(checkWiFiConnection()){    //Se il WiFi e' connesso
+      OTALoop();                  //Gestisci la connessione OTA
+    }else{                        //Altrimenti
+      reconnectWiFi();            //Riconnetti il WiFi
+    }
+    evaluateData();               //Se sono stati ricevuti dati da ESP-NOW intrepretali
+    handleWiFiLed();
   }
-  delay(150);
-  // if(checkWiFiConnection()){
-  //   serverLoop();
-  // }else{
-  //   reconnectWiFi();
-  // }
 }

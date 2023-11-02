@@ -32,7 +32,8 @@ const byte resetLed = 27;
 
 //Struct per comunicazione comandi
 Comandi comandi;  //Invio dei comandi
-Valori recv;      //DA SISTEMARE IL TIPO
+Valori recv;      //Ricezione dei valori
+Valori tabStatus; //Vecchi valori ricevuti
 
 //Modulo I/O
 Adafruit_MCP23017 mcp;
@@ -43,6 +44,11 @@ bool serialModeEnable = true;
 //WiFi
 char ssid[] = "Tabellone";
 char pass[] = "Tabellone";
+bool wifiInitialized = false;
+uint32_t wifiReconnectTimer = 0;
+uint32_t wifiLastConnect = 0;
+const uint32_t WIFI_CONNECTION_INTERVAL = 5000;       //5 secondi tra una connessione e l'altra
+const uint32_t WIFI_CONNECTION_TIMEOUT = 10 * 1000UL; //10 secondi di timeout per la riconnessione
 
 //Dichiarazioni delle funizioni
 //Inizializzazione
@@ -121,6 +127,8 @@ void initWDT() {
   esp_task_wdt_init(ESP_T_WDT_TIMEOUT, true);   //Inizializzo il task WDT
 }
 
+
+//WiFi
 void initWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
@@ -128,14 +136,62 @@ void initWiFi() {
     if(WiFi.status() == WL_CONNECTED) {
       break;
     }
-    delay(500);
+    delay(250);
+    digitalWrite(CONNECTION_LED_PIN, HIGH);
+    delay(250);
+    digitalWrite(CONNECTION_LED_PIN, LOW);
     Serial.print(".");
   }
   Serial.println();
   Serial.print("Connesso con IP: "); Serial.println(WiFi.localIP());
-
+  wifiInitialized = true;
 }
 
+bool getWifiInitialized() {
+  return wifiInitialized;
+}
+
+bool checkWiFiConnection() {
+  if (WiFi.status() == WL_CONNECTED){
+    wifiLastConnect = millis();
+    return true;
+  }
+  return false;
+}
+
+void reconnectWiFi() {
+  if(millis() - wifiReconnectTimer > WIFI_CONNECTION_INTERVAL){
+    wifiReconnectTimer = millis();
+    Serial.println("Riconnessione WiFi...");
+    WiFi.reconnect();
+    if(WiFi.status() == WL_CONNECTED){  
+      Serial.println();
+      Serial.print("Connesso con IP: "); Serial.println(WiFi.localIP());
+    }else if(millis() - wifiLastConnect > WIFI_CONNECTION_TIMEOUT){
+      Serial.println("ERRORE di CONNESSIONE.... REBOOT IN 5 SECONDI!!");
+      delay(5000);
+      ESP.restart();
+    }
+  }
+}
+
+static uint32_t blink_timer = 0;
+
+void handleWiFiLed(){
+  if(WiFi.status() != WL_CONNECTED){
+    if(millis() - blink_timer > 250){
+      blink_timer = millis();
+      digitalWrite(CONNECTION_LED_PIN, !digitalRead(CONNECTION_LED_PIN));
+    }
+  }else{
+    if(millis() - blink_timer > 750){
+      blink_timer = millis();
+      digitalWrite(CONNECTION_LED_PIN, !digitalRead(CONNECTION_LED_PIN));
+    }
+  }
+}
+
+//OTA
 void initOTA() {
   ArduinoOTA.setPort(3232);
 
@@ -178,21 +234,15 @@ void initOTA() {
   ArduinoOTA.begin();
 }
 
-bool checkWiFiConnection() {
-  return WiFi.status() == WL_CONNECTED;
+void OTALoop() {
+  ArduinoOTA.handle();
 }
 
-void reconnectWiFi() {
-  WiFi.reconnect();
-  for (int i = 0; i < 5; i++) {
-    if (WiFi.status() == WL_CONNECTED) {
-      break;
-    }
-    Serial.print(".");
-    delay(500);
-  }
-  Serial.println();
-  Serial.print("Connesso con IP: "); Serial.println(WiFi.localIP());
+void exitOtaMode(){
+  ArduinoOTA.end();
+  WiFi.disconnect();
+  WiFi.mode(WIFI_STA);
+  wifiInitialized = false;
 }
 
 //Utility
@@ -256,7 +306,7 @@ bool checkNowConnection() {
 // void readSerial(String &str);
 // void evaulateSerial(String &data);
 // void readButtons();
-// void evaluateData();              //DA IMPLEMENTARE DA ZERO
+// void evaluateData();              
 // bool serialMode();
 // void connectionErrorHandle();
 
@@ -342,6 +392,14 @@ void evaluateData() {
       digitalWrite(stopLed, 0);
     }
   }
+  if(recv.mode != OTA && recv.mode != tabStatus.mode){
+    exitOtaMode();
+  }
+  tabStatus = recv;
+}
+
+Mode getMode() {
+  return recv.mode;
 }
 
 void connectionErrorHandle() {
@@ -351,3 +409,4 @@ void connectionErrorHandle() {
     ESP.restart();
   }
 }
+
