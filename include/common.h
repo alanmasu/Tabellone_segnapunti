@@ -13,6 +13,7 @@ typedef struct Valori {
   Mode mode;
   bool modeImpostata;
   Valori();
+  Valori& operator=(const Valori &val2);
   void print(bool whitConf = false)const;
   void println(bool whitConf = false)const;
   bool operator==(const Valori &val2);
