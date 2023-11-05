@@ -67,6 +67,7 @@ void loop() {
     }
     delay(150);
   }else{                          //Se il tabellone e' in modalita' OTA
+    //Serial.println("OTA MODE"); //FOR DEBUG
     if(!getWifiInitialized()){    //Se il WiFi non e' inizializzato
       initWiFi();                 //Inizializza il WiFi
       initOTA();                  //Inizializza l'OTA

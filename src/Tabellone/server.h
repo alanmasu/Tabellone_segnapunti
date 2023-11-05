@@ -13,6 +13,9 @@ void initOTA();
 void initServer();
 void startFilesystem();
 
+bool getExitingOtaMode();
+void setExitingOtaMode(bool value);
+
 inline void serverLoop(){
     myWebServer.run();
 }

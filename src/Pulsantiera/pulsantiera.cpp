@@ -163,6 +163,7 @@ void reconnectWiFi() {
       Serial.println();
       Serial.print("Connesso con IP: "); Serial.println(WiFi.localIP());
     }else if(millis() - wifiLastConnect > WIFI_CONNECTION_TIMEOUT){
+      digitalWrite(CONNECTION_LED_PIN, LOW);
       Serial.println("ERRORE di CONNESSIONE.... REBOOT IN 5 SECONDI!!");
       delay(5000);
       ESP.restart();
@@ -388,6 +389,8 @@ void evaluateData() {
     }
   }
   if(recv.mode != OTA && recv.mode != tabStatus.mode){
+    Serial.println("EXIT OTA MODE");
+    delay(10000);
     exitOtaMode();
   }
   tabStatus = recv;
