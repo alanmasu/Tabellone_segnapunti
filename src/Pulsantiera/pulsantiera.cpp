@@ -43,7 +43,7 @@ bool wifiInitialized = false;
 uint32_t wifiReconnectTimer = 0;
 uint32_t wifiLastConnect = 0;
 const uint32_t WIFI_CONNECTION_INTERVAL = 5000;       //5 secondi tra una connessione e l'altra
-const uint32_t WIFI_CONNECTION_TIMEOUT = 10 * 1000UL; //10 secondi di timeout per la riconnessione
+const uint32_t WIFI_CONNECTION_TIMEOUT = 40 * 1000UL; //40 secondi di timeout per la riconnessione
 
 //Dichiarazioni delle funizioni
 //Inizializzazione
