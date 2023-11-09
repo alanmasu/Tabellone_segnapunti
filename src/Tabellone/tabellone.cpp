@@ -724,17 +724,17 @@ void mainProcess() {
                 case 10:
                   if (valori.stato  == stop) {
                     if ((valori.val[4] + 5) >= 59) {
-                      valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 5;
+                      valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 1;
                     }
-                    valori.val[4] = valori.val[4] == 59 ? 0 : valori.val[4] + 5;
+                    valori.val[4] = valori.val[4] + 5 >= 59 ? 0 : valori.val[4] + 5;
                   }
                   break;
                 case 11:
                   if (valori.stato  == stop) {
                     if ((valori.val[4] - 5) <= 0) {
-                      valori.val[3] = (valori.val[3] + 5) >= 0 ? 99 : valori.val[3] - 5;
+                      valori.val[3] = (valori.val[3]) == 0 ? 99 : valori.val[3] - 1;
                     }
-                    valori.val[4] = valori.val[4] == 0 ? 59 : valori.val[4] - 5;
+                    valori.val[4] = valori.val[4] - 5 <= 0 ? 59 : valori.val[4] - 5;
                   }
                   break;
               }
@@ -748,19 +748,19 @@ void mainProcess() {
             if (comandi.state[16] == 1) {       //Shift premuto in mod Orologio
               switch (i) {
                 case 8:
-                  ore = ore >= 24 ? 0 : ore + 1;
+                  ore = ore + 2 >= 24 ? 0 : ore + 2;
                   impostaOra(minuti, ore);
                   break;
                 case 9:
-                  ore = ore <= 0 ? 24 : ore - 1;
+                  ore = ore - 2 <= 0 ? 24 : ore - 2;
                   impostaOra(minuti, ore);
                   break;
                 case 10:
-                  minuti = minuti >= 59 ? 0 : minuti + 5;
+                  minuti = minuti + 5 >= 59 ? 0 : minuti + 5;
                   impostaOra(minuti, ore);
                   break;
                 case 11:
-                  minuti = minuti <= 0 ? 59 : minuti - 5;
+                  minuti = minuti - 5  <= 0 ? 59 : minuti - 5;
                   impostaOra(minuti, ore);
                   break;
                 case 14://S
@@ -773,7 +773,7 @@ void mainProcess() {
               }
             }
           }
-          // delay(500);
+          delay(500); //Solo per l'avanzamento veloce, DA TOGLIERE mettendone uno non bloccante
         }
       }
     }

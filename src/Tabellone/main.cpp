@@ -13,11 +13,12 @@
       TO DO:
         - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE    [DONE]
         - Non passa ancora i parametri all'indietro       [WORKING]
-            - Costruire il tipo per passaggi all'ind.     [DONE]
-            - Modificare le mod. di BACKUP                [DONE]
-              - Ripristino di default                     [ONLY TO TRY]
-            - Implementare la funzione di invio dei dati  [DONE]
-            - CORREGGERE AVAZAMENTO VELOCE DEI SECONDI    [TO DO] [!!!IMPORTANT!!!]
+        - Costruire il tipo per passaggi all'ind.         [DONE]
+        - Modificare le mod. di BACKUP                    [DONE]
+          - Ripristino di default                         [ONLY TO TRY]
+        - Implementare la funzione di invio dei dati      [DONE]
+        - CORREGGERE AVAZAMENTO VELOCE DEI SECONDI        [DONE]
+        
         - Libreria setteSeg                               [TO DO] [NEW LIBRARY]
             - Modificare le librerie per scrivere char    [TO DO] 
               sui display anche char
