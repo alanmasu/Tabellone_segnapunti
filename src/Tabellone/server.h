@@ -8,6 +8,7 @@
 extern FSWebServer myWebServer;
 
 void enteringOtaMode();
+void setFileName(String name);
 void exitOtaMode();
 void initOTA();
 void initServer();
@@ -24,6 +25,6 @@ inline void OTALoop(){
     ArduinoOTA.handle();
 }
 
-
+void handleGetVersion();
 
 #endif

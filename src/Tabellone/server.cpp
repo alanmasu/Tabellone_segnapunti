@@ -7,10 +7,13 @@
 #include <ArduinoOTA.h>
 #include <FS.h>
 #include <LITTLEFS.h>
+#include <git_revision.h>
 
 #define FILESYSTEM LITTLEFS
 WebServer server(80);
 FSWebServer myWebServer(FILESYSTEM, server);
+
+String version = "";
 
 //WiFi
 char ssid[] = "Tabellone";
@@ -79,6 +82,7 @@ void initServer(){
 
   // Add custom page handlers to webserver
   myWebServer.addHandler("/exitOtaMode", HTTP_GET, exitOtaMode);
+  myWebServer.addHandler("/getVersion", HTTP_GET, handleGetVersion);
 
   // Start webserver
   if (myWebServer.begin()) {
@@ -88,6 +92,24 @@ void initServer(){
     Serial.println(F("Open /edit page to view and edit files"));
     Serial.println(F("Open /update page to upload firmware and filesystem updates"));
   }
+}
+
+void exitOtaMode(){
+  clearCommands();
+  setMode(tabellone);
+  setExitingOtaMode(true);
+  Serial.println("Exiting OTA mode");
+  // Sending a redirect to "/" will redirect the user to the root page
+  WebServerClass* webRequest = myWebServer.getRequest();
+  webRequest->sendHeader("Location", String("/"), true);
+  webRequest->send(307, "text/plain", "Temporary Redirect"); 
+  ArduinoOTA.end();
+  WiFi.softAPdisconnect();
+}
+
+void handleGetVersion(){
+  WebServerClass* webRequest = myWebServer.getRequest();
+  webRequest->send(200, "text/plain", version);
 }
 
 ////////////////////////////////  Filesystem  /////////////////////////////////////////
@@ -118,15 +140,6 @@ void enteringOtaMode(){
   initServer();
 }
 
-void exitOtaMode(){
-  clearCommands();
-  setMode(tabellone);
-  setExitingOtaMode(true);
-  Serial.println("Exiting OTA mode");
-  // Sending a redirect to "/" will redirect the user to the root page
-  WebServerClass* webRequest = myWebServer.getRequest();
-  webRequest->sendHeader("Location", String("/"), true);
-  webRequest->send(307, "text/plain", "Temporary Redirect"); 
-  ArduinoOTA.end();
-  WiFi.softAPdisconnect();
+void setFileName(String name){
+  version = "Git commit: " + String(__GIT_COMMIT__) + " File Name: " + name + " Compiled on: " + String(__DATE__) + " " + String(__TIME__);
 }
