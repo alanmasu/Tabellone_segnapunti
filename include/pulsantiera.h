@@ -16,7 +16,7 @@
 void initSerial(const String &title);
 void initMCPs();
 void initPins();
-void initESPNOW(esp_now_peer_info_t* peerInfo);
+void initESPNOW();
 void initWDT();
 
 //WiFi

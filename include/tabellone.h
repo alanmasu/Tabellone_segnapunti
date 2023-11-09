@@ -27,7 +27,7 @@ void reset();
 void clearTab();
 void testTab();
 void displayWrite();
-bool initESP_NOW(esp_now_peer_info_t* peerInfo);
+bool initESP_NOW();
 void initPowerFail();
 void initRTC();
 

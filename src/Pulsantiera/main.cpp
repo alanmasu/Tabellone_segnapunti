@@ -38,13 +38,13 @@
 #include <esp_now.h>
 #include <common.h>
 
-esp_now_peer_info_t peerInfo;
+
 
 void setup() {
   // Init Serial Monitor
   String title = __FILE__;
   initSerial(title);
-  initESPNOW(&peerInfo);  
+  initESPNOW();  
   initMCPs();
   initPins();
   initWDT();

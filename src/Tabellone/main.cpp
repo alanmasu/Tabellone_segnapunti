@@ -38,7 +38,6 @@
 #include <common.h>
 
 #include "server.h"
-esp_now_peer_info_t peerInfo;
 extern unsigned long time_c;
 
 uint32_t dt = 0;
@@ -59,7 +58,7 @@ void setup() {
   initDuePunti();
   testTab();
   displayWrite();
-  initESP_NOW(&peerInfo);
+  initESP_NOW();
   initPowerFail();
   initRTC();
 }

@@ -18,9 +18,11 @@
   uint8_t broadcastAddress[] = TABELLONE_MAC_ADDRESS;
 #endif
 
+//ESP-NOW
 bool ESP_NOWState = false;
 bool ESP_NOWConnection = false;
 unsigned long time_c = 0;
+static esp_now_peer_info_t peerInfo;
 
 //Pin
 const byte pins[16] = {1, 0, 3, 2, 4, 6, 5, 7, 9, 8, 11, 10, 12, 13, 14, 15};
@@ -48,7 +50,7 @@ bool wifiInitialized = false;
 uint32_t wifiReconnectTimer = 0;
 uint32_t wifiLastConnect = 0;
 const uint32_t WIFI_CONNECTION_INTERVAL = 5000;       //5 secondi tra una connessione e l'altra
-const uint32_t WIFI_CONNECTION_TIMEOUT = 10 * 1000UL; //10 secondi di timeout per la riconnessione
+const uint32_t WIFI_CONNECTION_TIMEOUT = 40 * 1000UL; //40 secondi di timeout per la riconnessione
 
 //Dichiarazioni delle funizioni
 //Inizializzazione
@@ -85,7 +87,7 @@ void initPins() {
   pinMode(resetLed, OUTPUT);
 }
 
-void initESPNOW(esp_now_peer_info_t* peerInfo) {
+void initESPNOW() {
   WiFi.mode(WIFI_STA);
   pinMode(CONNECTION_LED_PIN, OUTPUT);
     // Init ESP-NOW
@@ -96,10 +98,10 @@ void initESPNOW(esp_now_peer_info_t* peerInfo) {
   }
   esp_now_register_send_cb(OnDataSent);
 
-  memcpy(peerInfo->peer_addr, broadcastAddress, 6);
-  peerInfo->channel = 0;
-  peerInfo->encrypt = false;
-  esp_err_t peer = esp_now_add_peer(peerInfo);
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+  esp_err_t peer = esp_now_add_peer(&peerInfo);
 
   if (peer != ESP_OK) {
     Serial.print("Failed to add peer: ");
@@ -127,10 +129,32 @@ void initWDT() {
   esp_task_wdt_init(ESP_T_WDT_TIMEOUT, true);   //Inizializzo il task WDT
 }
 
+static void handleWiFiEvent(arduino_event_id_t event){
+  switch (event) {
+    case ARDUINO_EVENT_WIFI_READY:               Serial.println("WiFi interface ready"); break;
+    case ARDUINO_EVENT_WIFI_SCAN_DONE:           Serial.println("Completed scan for access points"); break;
+    case ARDUINO_EVENT_WIFI_STA_START:           Serial.println("WiFi client started"); break;
+    case ARDUINO_EVENT_WIFI_STA_STOP:            Serial.println("WiFi clients stopped"); break;
+    case ARDUINO_EVENT_WIFI_STA_CONNECTED:       Serial.println("Connected to access point"); break;
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:    Serial.println("Disconnected from WiFi access point"); break;
+    case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE: Serial.println("Authentication mode of access point has changed"); break;
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+      Serial.print("Obtained IP address: ");
+      Serial.println(WiFi.localIP());
+      break;
+    default:
+      break;
+  }
+}
 
 //WiFi
 void initWiFi() {
+  esp_now_deinit();
+  WiFi.disconnect(true);
+  WiFi.enableSTA(true);
+  WiFi.onEvent(handleWiFiEvent);
   WiFi.mode(WIFI_STA);
+  WiFi.config(IPAddress(192, 168, 4, 10), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0), IPAddress(192, 168, 4, 1));
   WiFi.begin(ssid, pass);
   for(int i = 0; i < 10; i++){
     if(WiFi.status() == WL_CONNECTED) {
@@ -145,8 +169,9 @@ void initWiFi() {
   Serial.println();
   Serial.print("Connesso con IP: "); Serial.println(WiFi.localIP());
   wifiInitialized = true;
+  initESPNOW();
 }
-
+ 
 bool getWifiInitialized() {
   return wifiInitialized;
 }

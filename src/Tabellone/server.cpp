@@ -6,9 +6,9 @@
 #include <esp-fs-webserver.h>
 #include <ArduinoOTA.h>
 #include <FS.h>
-#include <LITTLEFS.h>
+#include <LittleFS.h>
 
-#define FILESYSTEM LITTLEFS
+#define FILESYSTEM LittleFS
 WebServer server(80);
 FSWebServer myWebServer(FILESYSTEM, server);
 
@@ -77,6 +77,19 @@ void initServer(){
   // Try to connect to flash stored SSID, start AP if fails after timeout
   myWebServer.setAPmode(ssid, pass);
 
+  WiFi.onEvent([](arduino_event_id_t event){
+    switch(event){
+      case ARDUINO_EVENT_WIFI_AP_START:           Serial.println("WiFi access point started"); break;
+      case ARDUINO_EVENT_WIFI_AP_STOP:            Serial.println("WiFi access point  stopped"); break;
+      case ARDUINO_EVENT_WIFI_AP_STACONNECTED:    Serial.println("Client connected"); break;
+      case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED: Serial.println("Client disconnected"); break;
+      case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:   Serial.println("Assigned IP address to client"); break;
+      case ARDUINO_EVENT_WIFI_AP_PROBEREQRECVED:  Serial.println("Received probe request"); break;
+      case ARDUINO_EVENT_WIFI_AP_GOT_IP6:         Serial.println("AP IPv6 is preferred"); break;
+      case ARDUINO_EVENT_WIFI_STA_GOT_IP6:        Serial.println("STA IPv6 is preferred"); break;
+    }
+  });
+
   // Add custom page handlers to webserver
   myWebServer.addHandler("/exitOtaMode", HTTP_GET, exitOtaMode);
 
@@ -129,4 +142,5 @@ void exitOtaMode(){
   webRequest->send(307, "text/plain", "Temporary Redirect"); 
   ArduinoOTA.end();
   WiFi.softAPdisconnect();
+  initESP_NOW();
 }

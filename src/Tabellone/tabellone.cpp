@@ -88,6 +88,7 @@ unsigned long time_p;           //Tempo dalla pressione del tasto
 #endif
 uint32_t lastMessageFromNOW = 0;  //Ultimo messaggio ricevuto
 bool ESP_NOWState = 0;            //Stato di ESP-NOW
+esp_now_peer_info_t peerInfo;
 
 //Time
 RTC_DS3231 Clock;   //Clock di sistema collegato in I2C
@@ -255,7 +256,7 @@ void displayWrite() {
   falli2.write(valori.val[6]);
 }
 
-bool initESP_NOW(esp_now_peer_info_t* peerInfo) {
+bool initESP_NOW() {
   pinMode(CONNECTION_LED, OUTPUT);
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
@@ -280,10 +281,10 @@ bool initESP_NOW(esp_now_peer_info_t* peerInfo) {
   }
   esp_now_register_send_cb(OnDataSent);
 
-  memcpy(peerInfo->peer_addr, broadcastAddress, 6);
-  peerInfo->channel = 0;
-  peerInfo->encrypt = false;
-  esp_err_t peer = esp_now_add_peer(peerInfo);
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+  esp_err_t peer = esp_now_add_peer(&peerInfo);
 
   if (peer != ESP_OK) {
     Serial.print("Failed to add peer: ");
