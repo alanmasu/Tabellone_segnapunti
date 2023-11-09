@@ -7,6 +7,7 @@
 
 extern FSWebServer myWebServer;
 
+void setFileName(String name);
 void initOTA();
 void initServer();
 void startFilesystem();
@@ -25,6 +26,6 @@ inline void OTALoop(){
     ArduinoOTA.handle();
 }
 
-
+void handleGetVersion();
 
 #endif

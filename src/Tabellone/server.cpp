@@ -7,10 +7,13 @@
 #include <ArduinoOTA.h>
 #include <FS.h>
 #include <LittleFS.h>
+#include <git_revision.h>
 
 #define FILESYSTEM LittleFS
 WebServer server(80);
 FSWebServer myWebServer(FILESYSTEM, server);
+
+String version = "";
 
 //WiFi
 char ssid[] = "Tabellone";
@@ -92,6 +95,7 @@ void initServer(){
 
   // Add custom page handlers to webserver
   myWebServer.addHandler("/exitOtaMode", HTTP_GET, exitOtaMode);
+  myWebServer.addHandler("/getVersion", HTTP_GET, handleGetVersion);
 
   // Start webserver
   if (myWebServer.begin()) {
@@ -101,6 +105,11 @@ void initServer(){
     Serial.println(F("Open /edit page to view and edit files"));
     Serial.println(F("Open /update page to upload firmware and filesystem updates"));
   }
+}
+
+void handleGetVersion(){
+  WebServerClass* webRequest = myWebServer.getRequest();
+  webRequest->send(200, "text/plain", version);
 }
 
 ////////////////////////////////  Filesystem  /////////////////////////////////////////
@@ -143,4 +152,8 @@ void exitOtaMode(){
   ArduinoOTA.end();
   WiFi.softAPdisconnect();
   initESP_NOW();
+}
+
+void setFileName(String name){
+  version = "Git commit: " + String(__GIT_COMMIT__) + " File Name: " + name + " Compiled on: " + String(__DATE__) + " " + String(__TIME__);
 }

@@ -11,10 +11,10 @@
         display:flex;
         flex-direction: column;
     }
-    /* .tittle1{
-        margin:0 auto;
-        padding-bottom:20px;
-    } */
+    .tittle1{*/
+       margin: 0 auto;
+       padding-bottom:20px;
+    }
   </style>
 </head>
 
@@ -31,7 +31,7 @@
                         <button class="myButton" onclick="window.location.href='/update'">Update Firmware</button>
                     </div>
                 </div>
-                <h3 class="tittle2" id="lbVersion">Version: </h3>
+                <h6 class="tittle4" id="lbVersion">Version: </h6>
             </div>
         </article>
     </main>
@@ -45,13 +45,15 @@
         }
         function getVersion(){
           const req = new XMLHttpRequest();
-          req.open("GET", "/version");
-          req.onload = (e) => {
-            if(req.responseType == ""){
-              const ver = req.resonseText;
-              let label = document.querySelectorAll("#lbVersion");
-              label.innerText = ver;
-              console.log("version", ver);
+          req.open("GET", "/getVersion");
+          req.onreadystatechange = (e) => {
+            if (req.readyState == XMLHttpRequest.DONE) {
+              if(req.responseType == ""){
+                let ver = req.responseText;
+                let label = document.getElementById("lbVersion");
+                label.innerText = "Version: " + ver;
+                console.log(ver);
+              }
             }
           }
           req.send();

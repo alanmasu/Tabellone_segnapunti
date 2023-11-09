@@ -43,8 +43,9 @@ extern unsigned long time_c;
 uint32_t dt = 0;
 
 void setup() {
-  String title = __FILE__;
-  initSerial(title);
+  String fileName = __FILE__;
+  initSerial(fileName);
+  setFileName(fileName);
   if (initEEPROM()) {
     uint32_t time_l = millis();
     rsBackup();
