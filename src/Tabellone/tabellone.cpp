@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include "server.h"
 #include <Ticker.h>
 #include <SPI.h>
 #include <EEPROM.h>
@@ -12,6 +13,9 @@
 #include <setteSeg.h> // ////////////////////////////////////////////// <<<<<--------------- MODIFICAREEEE
 #include <tabellone.h>
 #include <git_revision.h>
+#include <common.h>
+
+
 Comandi comandi;
 Comandi comandi_p;
 
@@ -68,12 +72,12 @@ TaskHandle_t powerFail_t;                 //Task handle del PowerFail
 //volatile bool stato = false;  //Stato della modalita' di gioco: true - countdown in corso || false - countdown non in corso
 //volatile bool mode = 0;       //Modalita di finzionamento: 0 - Tabellone || 1 - Orologio (o RTC o dall'accensione)
 //bool modeImpostata = false;   //Per ripristino automantico della mod. tabellone alla riconnessione
-volatile Valori valori;       //Struttura che contiene i valore del tabellone
-const long time_o = 30 * 1000;//Timeout per passaggio automantico alla mod. orologio
-unsigned long time_c;         //Tempo dall'ultima connessione della pulsantiera
+Valori valori;                  //Struttura che contiene i valore del tabellone
+const long time_o = 30 * 1000;  //Timeout per passaggio automantico alla mod. orologio
+unsigned long time_c;           //Tempo dall'ultima connessione della pulsantiera
 
 //Per avanzamento veloce
-unsigned long time_p;         //Tempo dalla pressione del tasto
+unsigned long time_p;           //Tempo dalla pressione del tasto
 
 //ESP-NOW
 uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C}; //7c:9e:bd:ee:8b:7c
@@ -86,85 +90,9 @@ byte minuti;        //Minuti
 byte ore;           //Ore
 bool RTC;           //Stato di configurazione RTC
 
-
-//Implementazione di metodi di struct
-//Comandi
-Comandi::Comandi() {
-  for (byte i = 0; i < 17; i++) {
-    state[i] = 0;
-  }
-}
-void Comandi::print()const {
-  for (byte i = 0; i < 16; i++) {
-    Serial.print(state[i]); Serial.print(".");
-  }
-  Serial.print(state[16]);
-}
-void Comandi::println()const {
-  print();
-  Serial.println();
-}
-
-//Valori
-Valori::Valori() {
-  for (byte i = 0; i < 9; i++) {
-    val[i] = 0;
-  }
-  stato = stop;
-  mode = tabellone;
-  modeImpostata = false;
-}
-
-void Valori::print(bool whitConf)const {
-  for (byte i = 0; i < 8; i++) {
-    Serial.print(val[i]); Serial.print(".");
-  }
-  Serial.print(val[8]);
-  if (whitConf) {
-    String str = "\tStato:";
-    switch (stato) {
-      case stop:
-        str += "stop\t";
-        break;
-      case run:
-        str += "run\t";
-        break;
-    }
-    str += "Modalita': ";
-    switch (mode) {
-      case tabellone:
-        str += "tabellone\t";
-        break;
-      case orologio:
-        str += "orologio\t";
-        break;
-    }
-    str += "Mode Impostata: ";
-    str += modeImpostata;
-    Serial.print(str);
-  }
-}
-void Valori::println(bool whitConf)const {
-  print(whitConf);
-  Serial.println();
-}
-bool Valori::operator==(const Valori &val2) {
-  for (byte i = 0; i < 9; i++) {
-    if (val[i] != val2.val[i]) {
-      return false;
-    }
-  }
-  if (stato != val2.stato) {
-    return false;
-  }
-  if (mode != val2.mode) {
-    return false;
-  }
-  if (modeImpostata != val2.modeImpostata) {
-    return false;
-  }
-  return true;
-}
+// //WiFi
+// char ssid[] = "Tabellone";
+// char pass[] = "Tabellone";
 
 
 //Definizioni delle funzioni
@@ -326,9 +254,9 @@ bool initESP_NOW(esp_now_peer_info_t* peerInfo) {
   pinMode(CONNECTION_LED, OUTPUT);
   pinMode(13, OUTPUT);
   digitalWrite(13, LOW);
-  //Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_AP_STA);
 
+  WiFi.mode(WIFI_AP_STA);
+  
   //Disabilito il controllo potenza WiFi
   esp_wifi_set_ps(WIFI_PS_NONE);
 
@@ -511,6 +439,11 @@ void tik() {
   }
 }
 
+//----------------------------------------------------------------------------------- OTA
+// void serverLoop() {
+//   // ArduinoOTA.handle();
+// }
+
 //----------------------------------------------------------------------------------- CORE
 // String readSerial(String &str);
 // void restoreTabMode();
@@ -545,6 +478,7 @@ void restoreTabMode() {
 }
 
 void mainProcess() {
+  bool isOTAcmd = comandi.state[13] && comandi.state[14] && comandi.state[15];
   for (byte i = 0; i < 16; i++) {
     if (comandi.state[i] == 1 ) {
       if (comandi.state[i] != comandi_p.state[i]) {
@@ -725,10 +659,7 @@ void mainProcess() {
             minuti = now.minute();
             ore = now.hour();
           }
-          Serial.print("OROLOGIO i: "); Serial.print(i);
-          Serial.print("\tShift: "); Serial.println(comandi.state[16]);
           if (comandi.state[16] == 1) { //Shift premuto in mod Orologio
-            Serial.print("SHIFT IN OROLOGIO e i: "); Serial.println(i);
             switch (i) {
               case 8:
                 ore = ore >= 24 ? 0 : ore + 1;
@@ -759,9 +690,12 @@ void mainProcess() {
           }
         }
       } else {
-        if (millis() - time_p > 1000 ) {  // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA
-          if (valori.mode == tabellone) {                //Modalità tabellone
-            if (comandi.state[16] == 0) {         //Shift non premuto in mod tabellone
+        if (millis() - time_p > 1000 ) {          // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA
+          if (valori.mode == tabellone) {         // Modalità tabellone
+            if (isOTAcmd && valori.stato != run) {
+              enteringOtaMode();
+              valori.mode = OTA;
+            } else if (comandi.state[16] == 0) {  // Shift non premuto in mod tabellone
               switch (i) {
                 case 0:
                   valori.val[0] = (valori.val[0] + 5) >= 199 ? 0 : valori.val[0] + 5;
@@ -805,7 +739,7 @@ void mainProcess() {
               minuti = now.minute();
               ore = now.hour();
             }
-            if (comandi.state[16] == 1) { //Shift premuto in mod Orologio
+            if (comandi.state[16] == 1) {       //Shift premuto in mod Orologio
               switch (i) {
                 case 8:
                   ore = ore >= 24 ? 0 : ore + 1;
@@ -826,14 +760,14 @@ void mainProcess() {
                 case 14://S
                   valori.mode = tabellone;
                   Serial.println("STOP + SHIFT IN OROLOGIO");
-                  //                  timer2p.detach();
-                  //                  displayWrite();
+                  // timer2p.detach();
+                  // displayWrite();
                   displayPrintOnSerial();
                   break;
               }
             }
           }
-          delay(500);
+          delay(500); //Solo per l'avanzamento veloce, tutto il resto non lo fa
         }
       }
     }
@@ -841,6 +775,16 @@ void mainProcess() {
   for (byte i = 0; i < 17; i++) {
     comandi_p.state[i] = comandi.state[i];
   }
+}
+
+void clearCommands(){
+  Serial.println("Cleared commands!");
+  comandi.state[13] = 0;
+  comandi.state[14] = 0;
+  comandi.state[15] = 0;
+  comandi_p.state[13] = 0;
+  comandi_p.state[14] = 0;
+  comandi_p.state[15] = 0;
 }
 
 void automaticMode() {
@@ -853,6 +797,11 @@ void automaticMode() {
 
 Mode getMode() {
   return valori.mode;
+}
+
+void setMode(Mode mode) {
+  valori.mode = mode;
+  Serial.printf("Setted mode to %d\n", valori.mode);
 }
 
 void displayPrint() {
@@ -976,6 +925,10 @@ void oraPrintOnSerial() {
     }
     Serial.println(toSendSerial);
   }
+}
+
+void OTAPrintOnSerial(){
+  Serial.println("-.-.-.ot.a.-.-.-.-");
 }
 
 void duePuntiWrite() {

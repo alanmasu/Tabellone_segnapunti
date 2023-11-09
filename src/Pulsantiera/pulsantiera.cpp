@@ -3,9 +3,11 @@
 #include <esp_int_wdt.h>
 #include <esp_task_wdt.h>
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <pulsantiera.h>
 #include <git_revision.h>
 #include <Adafruit_MCP23017.h>
+#include <common.h>
 
 //Variabili globali
 //ESP-NOW
@@ -25,93 +27,23 @@ const byte resetLed = 27;
 
 //Struct per comunicazione comandi
 Comandi comandi;  //Invio dei comandi
-Valori recv;      //DA SISTEMARE IL TIPO
+Valori recv;      //Ricezione dei valori
+Valori tabStatus; //Vecchi valori ricevuti
 
 //Modulo I/O
 Adafruit_MCP23017 mcp;
 
 //Modalità seriale
-bool serialModeEnable = false;
+bool serialModeEnable = true;
 
-//Implementazione di metodi di struct
-//Comandi
-Comandi::Comandi() {
-  for (byte i = 0; i < 17; i++) {
-    state[i] = 0;
-  }
-}
-void Comandi::print()const {
-  for (byte i = 0; i < 16; i++) {
-    Serial.print(state[i]); Serial.print(".");
-  }
-  Serial.print(state[16]);
-
-}
-void Comandi::println()const {
-  print();
-  Serial.println();
-}
-
-//Valori
-Valori::Valori() {
-  for (byte i = 0; i < 9; i++) {
-    val[i] = 0;
-  }
-  stato = stop;
-  mode = tabellone;
-  modeImpostata = false;
-}
-
-void Valori::print(bool whitConf)const {
-  for (byte i = 0; i < 8; i++) {
-    Serial.print(val[i]); Serial.print(".");
-  }
-  Serial.print(val[8]);
-  if (whitConf) {
-    String str = "\tStato:";
-    switch (stato) {
-      case stop:
-        str += "stop\t";
-        break;
-      case run:
-        str += "run\t";
-        break;
-    }
-    str += "Modalita': ";
-    switch (mode) {
-      case tabellone:
-        str += "tabellone\t";
-        break;
-      case orologio:
-        str += "orologio\t";
-        break;
-    }
-    str += "Mode Impostata: ";
-    str += modeImpostata;
-    Serial.print(str);
-  }
-}
-void Valori::println(bool whitConf)const {
-  print(whitConf);
-  Serial.println();
-}
-bool Valori::operator==(const Valori &val2) {
-  for (byte i = 0; i < 9; i++) {
-    if (val[i] != val2.val[i]) {
-      return false;
-    }
-  }
-  if (stato != val2.stato) {
-    return false;
-  }
-  if (mode != val2.mode) {
-    return false;
-  }
-  if (modeImpostata != val2.modeImpostata) {
-    return false;
-  }
-  return true;
-}
+//WiFi
+char ssid[] = "Tabellone";
+char pass[] = "Tabellone";
+bool wifiInitialized = false;
+uint32_t wifiReconnectTimer = 0;
+uint32_t wifiLastConnect = 0;
+const uint32_t WIFI_CONNECTION_INTERVAL = 5000;       //5 secondi tra una connessione e l'altra
+const uint32_t WIFI_CONNECTION_TIMEOUT = 40 * 1000UL; //40 secondi di timeout per la riconnessione
 
 //Dichiarazioni delle funizioni
 //Inizializzazione
@@ -190,6 +122,125 @@ void initWDT() {
   esp_task_wdt_init(ESP_T_WDT_TIMEOUT, true);   //Inizializzo il task WDT
 }
 
+
+//WiFi
+void initWiFi() {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, pass);
+  for(int i = 0; i < 10; i++){
+    if(WiFi.status() == WL_CONNECTED) {
+      break;
+    }
+    delay(250);
+    digitalWrite(CONNECTION_LED_PIN, HIGH);
+    delay(250);
+    digitalWrite(CONNECTION_LED_PIN, LOW);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.print("Connesso con IP: "); Serial.println(WiFi.localIP());
+  wifiInitialized = true;
+}
+
+bool getWifiInitialized() {
+  return wifiInitialized;
+}
+
+bool checkWiFiConnection() {
+  if (WiFi.status() == WL_CONNECTED){
+    wifiLastConnect = millis();
+    return true;
+  }
+  return false;
+}
+
+void reconnectWiFi() {
+  if(millis() - wifiReconnectTimer > WIFI_CONNECTION_INTERVAL){
+    wifiReconnectTimer = millis();
+    Serial.println("Riconnessione WiFi...");
+    WiFi.reconnect();
+    if(WiFi.status() == WL_CONNECTED){  
+      Serial.println();
+      Serial.print("Connesso con IP: "); Serial.println(WiFi.localIP());
+    }else if(millis() - wifiLastConnect > WIFI_CONNECTION_TIMEOUT){
+      digitalWrite(CONNECTION_LED_PIN, LOW);
+      Serial.println("ERRORE di CONNESSIONE.... REBOOT IN 5 SECONDI!!");
+      delay(5000);
+      ESP.restart();
+    }
+  }
+}
+
+uint32_t blink_timer = 0;
+
+void handleWiFiLed(){
+  if(WiFi.status() != WL_CONNECTED){
+    if(millis() - blink_timer > 250){
+      blink_timer = millis();
+      digitalWrite(CONNECTION_LED_PIN, !digitalRead(CONNECTION_LED_PIN));
+    }
+  }else{
+    if(millis() - blink_timer > 750){
+      blink_timer = millis();
+      digitalWrite(CONNECTION_LED_PIN, !digitalRead(CONNECTION_LED_PIN));
+    }
+  }
+}
+
+//OTA
+void initOTA() {
+  ArduinoOTA.setPort(3232);
+
+  // Hostname defaults to esp3232-[MAC]
+  ArduinoOTA.setHostname("Pulsantiera");
+
+  // No authentication by default
+  // ArduinoOTA.setPassword("admin");
+
+  // Password can be set with it's md5 value as well
+  // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
+  // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
+
+  ArduinoOTA
+    .onStart([]() {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        type = "filesystem";
+
+      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+      Serial.println("Start updating " + type);
+    })
+    .onEnd([]() {
+      Serial.println("\nEnd");
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    })
+    .onError([](ota_error_t error) {
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
+
+  ArduinoOTA.begin();
+}
+
+void OTALoop() {
+  ArduinoOTA.handle();
+}
+
+void exitOtaMode(){
+  ArduinoOTA.end();
+  WiFi.disconnect();
+  WiFi.mode(WIFI_STA);
+  wifiInitialized = false;
+}
+
 //Utility
 // String splitString(String str, char sep, int index);
 
@@ -251,7 +302,7 @@ bool checkNowConnection() {
 // void readSerial(String &str);
 // void evaulateSerial(String &data);
 // void readButtons();
-// void evaluateData();              //DA IMPLEMENTARE DA ZERO
+// void evaluateData();              
 // bool serialMode();
 // void connectionErrorHandle();
 
@@ -337,6 +388,15 @@ void evaluateData() {
       digitalWrite(stopLed, 0);
     }
   }
+  if(recv.mode != OTA && recv.mode != tabStatus.mode){
+    Serial.println("EXIT OTA MODE");
+    exitOtaMode();
+  }
+  tabStatus = recv;
+}
+
+Mode getMode() {
+  return recv.mode;
 }
 
 void connectionErrorHandle() {
@@ -346,3 +406,4 @@ void connectionErrorHandle() {
     ESP.restart();
   }
 }
+

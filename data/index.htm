@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+  <title>ESP Index</title>
+
+  <!--<link rel="stylesheet"  type="text/css" href="css/pico.fluid.classless.css">-->
+  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+  <style>
+    .div-int{
+        display:flex;
+        flex-direction: column;
+    }
+    .tittle1{*/
+       margin: 0 auto;
+       padding-bottom:20px;
+    }
+  </style>
+</head>
+
+<body onload="getVersion()">
+    <main class="container">
+        <article class="grid">
+            <div class="div-int">
+                <h3 class="tittle1">Tabellone - Remote OTA update</h3>
+                <div class="grid">
+                    <div>
+                        <button class="myButton" id="check-fw" aria-busy="false" onclick="exitMode()">Exit OTA Mode</button>
+                    </div>
+                    <div>
+                        <button class="myButton" onclick="window.location.href='/update'">Update Firmware</button>
+                    </div>
+                </div>
+                <h6 class="tittle4" id="lbVersion">Version: </h6>
+            </div>
+        </article>
+    </main>
+    <script type="text/javascript">
+        // This function Exits from OTA mode
+        function exitMode() {
+          const req = new XMLHttpRequest();
+          req.open("GET", "/exitOtaMode");
+          req.send();
+          console.log("Exit");
+        }
+        function getVersion(){
+          const req = new XMLHttpRequest();
+          req.open("GET", "/getVersion");
+          req.onreadystatechange = (e) => {
+            if (req.readyState == XMLHttpRequest.DONE) {
+              if(req.responseType == ""){
+                let ver = req.responseText;
+                let label = document.getElementById("lbVersion");
+                label.innerText = "Version: " + ver;
+                console.log(ver);
+              }
+            }
+          }
+          req.send();
+          console.log("Exit");
+        }
+    </script>
+</body>
+</html>
