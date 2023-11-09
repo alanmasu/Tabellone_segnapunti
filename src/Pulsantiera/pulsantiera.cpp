@@ -420,7 +420,6 @@ void evaluateData() {
   }
   if(recv.mode != OTA && recv.mode != tabStatus.mode){
     Serial.println("EXIT OTA MODE");
-    delay(10000);
     exitOtaMode();
   }
   tabStatus = recv;

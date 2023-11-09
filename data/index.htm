@@ -4,24 +4,21 @@
   <meta http-equiv="Content-type" content="text/html; charset=utf-8">
   <title>ESP Index</title>
 
+  <!--<link rel="stylesheet"  type="text/css" href="css/pico.fluid.classless.css">-->
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
   <style>
     .div-int{
         display:flex;
         flex-direction: column;
     }
-    .tittle1{
+    /* .tittle1{
         margin:0 auto;
         padding-bottom:20px;
-    }
-    /* .myButton{
-        margin: 0 auto;
-        max-width: 30%;
     } */
   </style>
 </head>
 
-<body>
+<body onload="getVersion()">
     <main class="container">
         <article class="grid">
             <div class="div-int">
@@ -34,17 +31,31 @@
                         <button class="myButton" onclick="window.location.href='/update'">Update Firmware</button>
                     </div>
                 </div>
-                
+                <h3 class="tittle2" id="lbVersion">Version: </h3>
             </div>
         </article>
     </main>
     <script type="text/javascript">
         // This function Exits from OTA mode
         function exitMode() {
-            const req = new XMLHttpRequest();
-            req.open("GET", "/exitOtaMode");
-            req.send();
-            console.log("Exit");
+          const req = new XMLHttpRequest();
+          req.open("GET", "/exitOtaMode");
+          req.send();
+          console.log("Exit");
+        }
+        function getVersion(){
+          const req = new XMLHttpRequest();
+          req.open("GET", "/version");
+          req.onload = (e) => {
+            if(req.responseType == ""){
+              const ver = req.resonseText;
+              let label = document.querySelectorAll("#lbVersion");
+              label.innerText = ver;
+              console.log("version", ver);
+            }
+          }
+          req.send();
+          console.log("Exit");
         }
     </script>
 </body>
