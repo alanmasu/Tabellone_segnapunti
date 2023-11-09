@@ -767,7 +767,7 @@ void mainProcess() {
               }
             }
           }
-          // delay(500);
+          delay(500); //Solo per l'avanzamento veloce, tutto il resto non lo fa
         }
       }
     }
