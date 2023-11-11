@@ -30,8 +30,9 @@
             - Inserire il WebServer da FileSystem         [DONE]   
             - Scrivere sui display la modalita'           [NEED NEW LIBRARY]                     
         - Modalita CRONOMETRO                             [WORK IN PROGRESS]
-            - Decidere la combinazione di tasti           [TO DO]
-            - Implementare la funzione di cronometro      [TO DO]
+            - Decidere la combinazione di tasti           [WORK IN PROGRESS]
+            - Implementare la funzione di cronometro      [WORK IN PROGRESS]
+            - Implementare il fine cronometro             [TO DO]
             - Scrivere sui display la modalita'           [NEED NEW LIBRARY]                     
 */
 

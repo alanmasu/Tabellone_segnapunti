@@ -61,6 +61,8 @@ void oraPrint();
 void oraPrintOnSerial();
 void OTAPrint();
 void OTAPrintOnSerial();
+// void TimerModePrint();
+// void TimerModePrintOnSerial();
 void duePuntiWrite();
 void finishTime();
 
