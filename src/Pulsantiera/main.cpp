@@ -15,6 +15,7 @@
             funzioni                                    [FIXED]
 
       TO DO:
+       - CONTROLLARE IL REBOOOT                         [IMPORTANTEEEE!!!!!!!!!!!!!!!!!!!!!!!]
        - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE   [DONE]
        - Passaggio all'indietro dei dati                [WORKING]
           - Costruire il tipo per passaggi all'ind.     [DONE]

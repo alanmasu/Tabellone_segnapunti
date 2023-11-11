@@ -15,7 +15,6 @@
 #include <git_revision.h>
 #include <common.h>
 
-
 Comandi comandi;
 Comandi comandi_p;
 
@@ -103,6 +102,7 @@ bool RTC;           //Stato di configurazione RTC
 void initSerial(String &title) {
   Serial.begin(115200); // COM5
   Serial.printf("Git commit hash: %s, File: %s\n", __GIT_COMMIT__, title.c_str());
+  Serial2.begin(9600);
 }
 
 bool initEEPROM() {
@@ -342,6 +342,11 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&comandi, incomingData, sizeof(comandi));
   lastMessageFromNOW = millis();
+  // for(int i = 0; i < 16; ++i){
+  //   Serial2.print(comandi.state[i]);
+  //   Serial2.print(".");
+  // } 
+  // Serial2.println(comandi.state[16]);
 }
 
 void sendViaNow() {
@@ -757,6 +762,7 @@ void mainProcess() {
               }
             }else if(comandi.state[16] == 1){ //Shift premuto in mod tabellone [AVANZAMENTO VELOCE]
               if (comandi.state[12] && valori.stato == stop && firstChangeMode == false){
+                Serial2.println("Cambio modalità");
                 firstChangeMode = true;
                 changedMode = true;
                 changeModeInstant = millis();
@@ -767,6 +773,7 @@ void mainProcess() {
                 }
               }else{
                 firstChangeMode = false;
+                Serial2.println("Ripristinato");
               }
             }
           } else if (valori.mode == orologio) { //Modalità orologio
