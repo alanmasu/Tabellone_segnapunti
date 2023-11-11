@@ -81,6 +81,8 @@ unsigned long time_p;           //Tempo dalla pressione del tasto
 uint32_t changeModeInstant = 0; //Istante di cambio modalità
 bool changedMode = false;       //Cambio modalità in corso
 uint8_t blynkCounter;           //Contatore per il blink delle scritte
+bool firstChangeMode = false;   //Flag per il rilascio del pulsante di cambio modalità
+
 //ESP-NOW
 uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C}; //7c:9e:bd:ee:8b:7c
 uint32_t lastMessageFromNOW = 0;  //Ultimo messaggio ricevuto
@@ -754,7 +756,8 @@ void mainProcess() {
                   break;
               }
             }else if(comandi.state[16] == 1){ //Shift premuto in mod tabellone [AVANZAMENTO VELOCE]
-              if (comandi.state[12] && valori.stato == stop){
+              if (comandi.state[12] && valori.stato == stop && firstChangeMode == false){
+                firstChangeMode = true;
                 changedMode = true;
                 changeModeInstant = millis();
                 if(valori.timerType == timer){
@@ -762,6 +765,8 @@ void mainProcess() {
                 }else if (valori.timerType == cronometro){
                   valori.timerType = timer;
                 }
+              }else{
+                firstChangeMode = false;
               }
             }
           } else if (valori.mode == orologio) { //Modalità orologio
@@ -914,6 +919,7 @@ void displayPrintOnSerial() {
     }
     toSendSerial += String(valori.val[8]);
     blynkCounter = 0;
+    Serial.println(toSendSerial);
   }else{            //Se è cambiata la modalità
     uint32_t dt = millis() - changeModeInstant;
     //Calcolo la modalità 
@@ -946,9 +952,9 @@ void displayPrintOnSerial() {
         toSendSerial += String(valori.val[8]);
       }else{
         changeModeInstant = millis();
+        ++blynkCounter;
       }
       Serial.println(toSendSerial);
-      ++blynkCounter;
     }else{
       changedMode = false;
     }
