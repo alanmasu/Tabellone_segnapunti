@@ -18,6 +18,8 @@
           - Ripristino di default                         [ONLY TO TRY]
         - Implementare la funzione di invio dei dati      [DONE]
         - CORREGGERE AVAZAMENTO VELOCE DEI SECONDI        [DONE]
+            - Controllare il comportamento se vengono     [TO DO] [HARDWARE]
+              premuti piu' pulsanti contemporaneamente
         
         - Libreria setteSeg                               [DONE] [TO TEST MORE]
             - Modificare le librerie per scrivere char    [DONE] [TO TEST MORE]

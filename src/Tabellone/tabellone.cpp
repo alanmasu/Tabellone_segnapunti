@@ -344,6 +344,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&comandi, incomingData, sizeof(comandi));
   lastMessageFromNOW = millis();
+  Serial2.println(comandi.state[12]);
   // for(int i = 0; i < 16; ++i){
   //   Serial2.print(comandi.state[i]);
   //   Serial2.print(".");
@@ -763,19 +764,18 @@ void mainProcess() {
                   break;
               }
             }else if(comandi.state[16] == 1){ //Shift premuto in mod tabellone [AVANZAMENTO VELOCE]
-              if (comandi.state[12] && valori.stato == stop && firstChangeMode == false){
-                Serial2.println("Cambio modalità");
-                firstChangeMode = true;
-                changedMode = true;
-                changeModeInstant = millis();
-                if(valori.timerType == timer){
-                  valori.timerType = cronometro;
-                }else if (valori.timerType == cronometro){
-                  valori.timerType = timer;
+              if (comandi.state[12]){         //Se è premuto il tasto di cambio modalita' (SHIFT + RESET CRONO)
+                if(valori.stato == stop && firstChangeMode == false){
+                  Serial.println("Cambio modalita'");
+                  firstChangeMode = true;
+                  changedMode = true;
+                  changeModeInstant = millis();
+                  if(valori.timerType == timer){
+                    valori.timerType = cronometro;
+                  }else if (valori.timerType == cronometro){
+                    valori.timerType = timer;
+                  }
                 }
-              }else{
-                firstChangeMode = false;
-                Serial2.println("Ripristinato");
               }
             }
           } else if (valori.mode == orologio) { //Modalità orologio
@@ -816,6 +816,10 @@ void mainProcess() {
         }
       }
     }
+  }
+  if (!comandi.state[12] && firstChangeMode == true){
+    firstChangeMode = false;
+    Serial2.println("Ripristinato");
   }
   for (byte i = 0; i < 17; i++) {
     comandi_p.state[i] = comandi.state[i];
@@ -941,7 +945,7 @@ void displayPrintOnSerial() {
       mode[1] = "oN";
     }
     if(blynkCounter < 10){
-      if (dt <= 500){                 
+      if (dt <= 1000){                 
         for (int i = 0; i < 8; i++) {
           switch (i){
             case 0:
@@ -954,16 +958,19 @@ void displayPrintOnSerial() {
           }
         }
         toSendSerial += String(valori.val[8]);
-      }else if (500 < dt && dt <= 1000){
+      }else if (1000 < dt && dt <= 2000){
         for (int i = 0; i < 8; i++) {
           toSendSerial += String(valori.val[i]) + ".";
         }
         toSendSerial += String(valori.val[8]);
-      }else{
+      }else if(2000 < dt ){
         changeModeInstant = millis();
         ++blynkCounter;
+        Serial.println(blynkCounter);
       }
-      Serial.println(toSendSerial);
+      if(toSendSerial != ""){
+        Serial.println(toSendSerial);
+      }
     }else{
       changedMode = false;
     }
