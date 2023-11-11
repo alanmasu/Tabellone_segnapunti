@@ -934,8 +934,21 @@ void OTAPrintOnSerial(){
 }
 
 void OTAPrint(){
+  pt1.clear();
+  pt2.clear();
+  periodo.clear();
   c_m.print("ot");
   c_s.print("a");
+  falli1.clear();
+  falli2.clear();
+  mcp[mcpTimeout].digitalWrite(f1_1, 0);
+  mcp[mcpTimeout].digitalWrite(f1_2, 0);
+  mcp[mcpTimeout].digitalWrite(f1_3, 0);
+  mcp[mcpTimeout].digitalWrite(f2_1, 0);
+  mcp[mcpTimeout].digitalWrite(f2_2, 0);
+  mcp[mcpTimeout].digitalWrite(f2_3, 0);
+  mcp[2].digitalWrite(7, 0);
+  mcp[2].digitalWrite(15, 0);
 }
 
 void duePuntiWrite() {

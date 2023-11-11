@@ -100,9 +100,11 @@ void loop() {
       displayPrint();                                 //Scrivi i punteggi sui display
       displayPrintOnSerial();                         //Scrivi i punteggi sui display seriali (tool Visual Basic)
       timeOutWrite();                                 //Scrivi i timeout
+      duePuntiWrite();                                //Scrivi i due punti
       break;
     case orologio:                                  //Modalita' Orologio
       oraPrint();                                     //Scrivi l'ora sui display
+      duePuntiWrite();                                //Scrivi i due punti
       oraPrintOnSerial();                             //Scrivi l'ora sui display seriali (tool Visual Basic)
       break;
     case OTA:                                       //Modalita' OTA
@@ -112,6 +114,5 @@ void loop() {
       OTAPrint();
       break;
   }
-  duePuntiWrite();                                  //Scrivi i due punti
   delay(50);
 }
