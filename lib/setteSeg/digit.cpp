@@ -216,6 +216,108 @@ void digit::write(int n) {
     }
   }
 }
+
+void digit::print(char c){
+  int On = 0;
+  if (_mode == 'k'){
+    On = 1;
+  } else if (_mode == 'a'){
+    On = 0;
+  }
+  switch (c) {
+    case 'a':
+    case 'A':
+      digitalWrite(_a, On);
+      digitalWrite(_b, On);
+      digitalWrite(_c, On);
+      digitalWrite(_d, On);
+      digitalWrite(_e, On);
+      digitalWrite(_f, !On);
+      digitalWrite(_g, On);
+      break;
+    case 'c':
+    case 'C':
+      digitalWrite(_a, !On);
+      digitalWrite(_b, !On);
+      digitalWrite(_c, On);
+      digitalWrite(_d, On);
+      digitalWrite(_e, !On);
+      digitalWrite(_f, !On);
+      digitalWrite(_g, On);
+      break;  
+    case 'e':
+    case 'E':
+      digitalWrite(_a, On);
+      digitalWrite(_b, On);
+      digitalWrite(_c, !On);
+      digitalWrite(_d, On);
+      digitalWrite(_e, On);
+      digitalWrite(_f, On);
+      digitalWrite(_g, On);
+      break;
+    case 'i':
+    case 'I':
+      digitalWrite(_a, !On);
+      digitalWrite(_b, !On);
+      digitalWrite(_c, !On);
+      digitalWrite(_d, !On);
+      digitalWrite(_e, On);
+      digitalWrite(_f, On);
+      digitalWrite(_g, !On);
+      break;
+    case 'm':
+    case 'M':
+      digitalWrite(_a, On);
+      digitalWrite(_b, !On);
+      digitalWrite(_c, On);
+      digitalWrite(_d, On);
+      digitalWrite(_e, On);
+      digitalWrite(_f, !On);
+      digitalWrite(_g, On);
+      break;
+    case 'n':
+    case 'N':
+      digitalWrite(_a, On);
+      digitalWrite(_b, On);
+      digitalWrite(_c, On);
+      digitalWrite(_d, !On);
+      digitalWrite(_e, On);
+      digitalWrite(_f, On);
+      digitalWrite(_g, On);
+      break;
+    case 'o':
+    case 'O':
+      digitalWrite(_a, !On);
+      digitalWrite(_b, !On);
+      digitalWrite(_c, On);
+      digitalWrite(_d, On);
+      digitalWrite(_e, On);
+      digitalWrite(_f, !On);
+      digitalWrite(_g, On);
+      break;
+    case 'r':
+    case 'R':
+      digitalWrite(_a, On);
+      digitalWrite(_b, On);
+      digitalWrite(_c, !On);
+      digitalWrite(_d, !On);
+      digitalWrite(_e, On);
+      digitalWrite(_f, On);
+      digitalWrite(_g, !On);
+      break;
+    case 't':
+    case 'T':
+      digitalWrite(_a, !On);
+      digitalWrite(_b, !On);
+      digitalWrite(_c, !On);
+      digitalWrite(_d, On);
+      digitalWrite(_e, On);
+      digitalWrite(_f, On);
+      digitalWrite(_g, On);
+      break;
+  }
+}
+
 int digit::read() {
   return _number;
 }
