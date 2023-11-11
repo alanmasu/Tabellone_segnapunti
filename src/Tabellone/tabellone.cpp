@@ -78,7 +78,9 @@ unsigned long time_c;           //Tempo dall'ultima connessione della pulsantier
 
 //Per avanzamento veloce
 unsigned long time_p;           //Tempo dalla pressione del tasto
-
+uint32_t changeModeInstant = 0; //Istante di cambio modalità
+bool changedMode = false;       //Cambio modalità in corso
+uint8_t blynkCounter;           //Contatore per il blink delle scritte
 //ESP-NOW
 //80:7d:3a:b7:d7:cc
 // uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C}; //7c:9e:bd:ee:8b:7c
@@ -117,6 +119,10 @@ void rsBackup() {
   }
   if( valori.mode != tabellone || valori.mode != orologio){
     valori.mode = tabellone;
+    EEPROMSave();
+  }
+  if(valori.timerType != cronometro || valori.timerType != timer){
+    valori.timerType = cronometro;
     EEPROMSave();
   }
   address += sizeof(valori);
@@ -430,14 +436,29 @@ String getTime() {
 }
 
 void tik() {
-  if (valori.val[4] == 0) {
-    valori.val[4] = 59;
-    valori.val[3] --;
-  } else {
-    valori.val[4]--;
-  }
-  if (valori.val[3] == 0 && valori.val[4] == 0) {
-    finishTime();
+  switch (valori.timerType){
+    case cronometro:
+      if (valori.val[4] == 59) {
+        valori.val[4] = 0;
+        valori.val[3] ++;
+      } else {
+        valori.val[4] ++;
+      }
+      break;
+    case timer:
+      if (valori.val[4] == 0) {
+        valori.val[4] = 59;
+        valori.val[3] --;
+      } else {
+        valori.val[4]--;
+      }
+      if (valori.val[3] == 0 && valori.val[4] == 0) {
+        finishTime();
+      }
+      break;
+    default:
+      valori.timerType = cronometro;
+      break;
   }
 }
 
@@ -546,7 +567,7 @@ void mainProcess() {
                 }
                 break;
               case 13://P
-                if (valori.val[3] != 0 || valori.val[4] != 0) {
+                if (valori.val[3] != 0 || valori.val[4] != 0 || valori.timerType == cronometro) {
                   crono.attach(1, tik);
                   timer2p.attach(0.5, duePunti);
                   valori.stato = run;
@@ -734,6 +755,16 @@ void mainProcess() {
                   }
                   break;
               }
+            }else if(comandi.state[16] == 1){ //Shift premuto in mod tabellone [AVANZAMENTO VELOCE]
+              if (comandi.state[12] && valori.stato == stop){
+                changedMode = true;
+                changeModeInstant = millis();
+                if(valori.timerType == timer){
+                  valori.timerType = cronometro;
+                }else if (valori.timerType == cronometro){
+                  valori.timerType = timer;
+                }
+              }
             }
           } else if (valori.mode == orologio) { //Modalità orologio
             if (RTC) {
@@ -877,13 +908,53 @@ void timeOutWrite() {
   }
 }
 
-void displayPrintOnSerial() {
+void displayPrintOnSerial() { 
   String toSendSerial = "";
-  for (int i = 0; i < 8; i++) {
-    toSendSerial += String(valori.val[i]) + ".";
+  if(!changedMode){ //Se non è cambiata la modalità
+    for (int i = 0; i < 8; i++) {
+      toSendSerial += String(valori.val[i]) + ".";
+    }
+    toSendSerial += String(valori.val[8]);
+    blynkCounter = 0;
+  }else{            //Se è cambiata la modalità
+    uint32_t dt = millis() - changeModeInstant;
+    //Calcolo la modalità 
+    String mode[2];
+    if(valori.timerType == timer){
+      mode[0] = "ti";
+      mode[1] = "ME";
+    }else if (valori.timerType == cronometro){
+      mode[0] = "cR";
+      mode[1] = "oN";
+    }
+    if(blynkCounter < 10){
+      if (dt <= 500){                 
+        for (int i = 0; i < 8; i++) {
+          switch (i){
+            case 0:
+            case 1:
+              toSendSerial += String(mode[i]) + ".";
+              break;
+            default:
+              toSendSerial += String(valori.val[i]) + ".";
+              break;
+          }
+        }
+        toSendSerial += String(valori.val[8]);
+      }else if (500 < dt && dt <= 1000){
+        for (int i = 0; i < 8; i++) {
+          toSendSerial += String(valori.val[i]) + ".";
+        }
+        toSendSerial += String(valori.val[8]);
+      }else{
+        changeModeInstant = millis();
+      }
+      Serial.println(toSendSerial);
+      ++blynkCounter;
+    }else{
+      changedMode = false;
+    }
   }
-  toSendSerial += String(valori.val[8]);
-  Serial.println(toSendSerial);
 }
 
 void oraPrint() {
