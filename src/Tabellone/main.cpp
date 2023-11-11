@@ -32,7 +32,7 @@
             - Inserire il WebServer da FileSystem         [DONE]   
             - Scrivere sui display la modalita'           [DONE]                     
         - Modalita CRONOMETRO                             [WORK IN PROGRESS]
-            - Decidere la combinazione di tasti           [WORK IN PROGRESS]
+            - Decidere la combinazione di tasti           [DONE]
             - Implementare la funzione di cronometro      [WORK IN PROGRESS]
             - Implementare il fine cronometro             [TO DO]
             - Scrivere sui display la modalita'           [NEED NEW LIBRARY]                     
@@ -81,17 +81,6 @@ void loop() {
     time_c = millis();                              //Salvi il timestamp per il passaggio auto da una mod all'altra
     mainProcess();                                  //Elabori i comandi ricevuti
     sendViaNow();                                   //Invii i dati alla pulsantiera
-    
-    //DEBUG
-    // if(exitingOtaMode){
-    //   if(millis() - serialTimer > 1000){
-    //     Serial.println("Sending data after exiting OTA mode!");
-    //     Serial.printf("Mode: %d\n", getMode());
-    //     serialTimer = millis();
-    //   }
-    // }
-    //END DEBUG
-
     if(nowConnection && exitingOtaMode){            //Se sei connesso e stai uscendo da mod. OTA...
       setExitingOtaMode(false);                     //... allora reimposti la variabile di uscita da mod. OTA
     }

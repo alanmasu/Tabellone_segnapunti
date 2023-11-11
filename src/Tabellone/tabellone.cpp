@@ -95,6 +95,10 @@ byte minuti;        //Minuti
 byte ore;           //Ore
 bool RTC;           //Stato di configurazione RTC
 
+//Valori finali cronometro
+uint8_t finalMinutesValue;
+uint8_t finalSecondsVales;
+
 // //WiFi
 // char ssid[] = "Tabellone";
 // char pass[] = "Tabellone";
@@ -452,6 +456,9 @@ void tik() {
       } else {
         valori.val[4] ++;
       }
+      if(valori.val[3] == finalMinutesVales && valori.val[4] == finalSecondsVales){
+        finishTime();
+      }
       break;
     case timer:
       if (valori.val[4] == 0) {
@@ -579,6 +586,10 @@ void mainProcess() {
                   crono.attach(1, tik);
                   timer2p.attach(0.5, duePunti);
                   valori.stato = run;
+                  if(valori.timerType == cronometro){
+                    finalMinutesValue = valori.val[3];
+                    finalSecondsVales = valori.val[4];
+                  }
                 }
                 break;
               case 14://S
