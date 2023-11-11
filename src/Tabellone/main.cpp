@@ -108,7 +108,7 @@ void loop() {
     case OTA:                                       //Modalita' OTA
       serverLoop();                                   //Loop del WebServer
       OTALoop();                                      //Loop dell'OTA Updater
-      OTAPrintOnSerial();
+      OTAPrintOnSerial();                             //Scrive il messaggio ota sulla seriale
       break;
   }
   duePuntiWrite();                                  //Scrivi i due punti

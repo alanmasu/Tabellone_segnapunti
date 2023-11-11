@@ -80,7 +80,9 @@ unsigned long time_c;           //Tempo dall'ultima connessione della pulsantier
 unsigned long time_p;           //Tempo dalla pressione del tasto
 
 //ESP-NOW
-uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C}; //7c:9e:bd:ee:8b:7c
+//80:7d:3a:b7:d7:cc
+// uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C}; //7c:9e:bd:ee:8b:7c
+uint8_t broadcastAddress[] = {0x80, 0x7D, 0x3A, 0xB7, 0xD7, 0xCC}; //7c:9e:bd:ee:8b:7c
 uint32_t lastMessageFromNOW = 0;  //Ultimo messaggio ricevuto
 bool ESP_NOWState = 0;            //Stato di ESP-NOW
 
@@ -682,8 +684,8 @@ void mainProcess() {
                 Serial.println("STOP + SHIFT IN OROLOGIO");
                 stateP = true;
                 valori.modeImpostata = false;
-                // timer2p.detach();
-                // displayWrite();
+                timer2p.detach();
+                displayWrite();
                 displayPrintOnSerial();
                 break;
             }
