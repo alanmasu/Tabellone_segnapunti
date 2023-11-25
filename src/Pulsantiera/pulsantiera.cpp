@@ -36,7 +36,7 @@ Valori tabStatus; //Vecchi valori ricevuti
 Adafruit_MCP23017 mcp;
 
 //Modalità seriale
-bool serialModeEnable = true;
+bool serialModeEnable = false;
 
 //WiFi
 char ssid[] = "Tabellone";
