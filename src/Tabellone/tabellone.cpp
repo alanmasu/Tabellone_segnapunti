@@ -95,7 +95,7 @@ bool RTC;           //Stato di configurazione RTC
 
 //Valori finali cronometro
 uint8_t finalMinutesValue;
-uint8_t finalSecondsVales;
+uint8_t finalSecondsValue;
 
 // //WiFi
 // char ssid[] = "Tabellone";
@@ -454,7 +454,7 @@ void tik() {
       } else {
         valori.val[4] ++;
       }
-      if(valori.val[3] == finalMinutesVales && valori.val[4] == finalSecondsVales){
+      if(valori.val[3] == finalMinutesValue && valori.val[4] == finalSecondsValue){
         finishTime();
       }
       break;
@@ -586,7 +586,9 @@ void mainProcess() {
                   valori.stato = run;
                   if(valori.timerType == cronometro){
                     finalMinutesValue = valori.val[3];
-                    finalSecondsVales = valori.val[4];
+                    finalSecondsValue = valori.val[4];
+                    valori.val[3] = 0;
+                    valori.val[4] = 0;
                   }
                 }
                 break;
@@ -779,6 +781,7 @@ void mainProcess() {
                   firstChangeMode = true;
                   changedMode = true;
                   changeModeInstant = millis();
+                  blynkCounter = 0;
                   if(valori.timerType == timer){
                     valori.timerType = cronometro;
                   }else if (valori.timerType == cronometro){
