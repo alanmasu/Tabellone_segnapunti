@@ -1,12 +1,16 @@
-/* Creato il 22/05/2020
+/* Creato il 05/12/2021
     da Alan Masutti
 
    Note
     - Comprende già le modifiche fatte: falli e time-out
-    - Spostato l'RTC sul tabellone
+
+   PRIMA PROVA DI ESP-NOW
+   TO DO LIST:
+    - Cambio di protocollo [TO DO]
+    - OTA                  [TO DO]
 
    Ultima modifica il:
-    27/05/2020
+    05/12/2021
 
 */
 
@@ -15,6 +19,14 @@
 #include <WiFi.h>
 #include <Adafruit_MCP23017.h>
 #include <BluetoothSerial.h>
+#include <Wire.h>
+#include <git_revision.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
+#include <hardware.h>
+
+#define CONNECTION_LED 2
+#define ESP_NOW_MAX_TIMEOUT 10 *1000UL
 
 //Funzioni
 String splitString(String str, char sep, int index); //Funzione: splitta le stringhe
@@ -66,6 +78,25 @@ String timeString;
 
 BluetoothSerial BT;
 
+//Struct e typedef
+typedef struct Comandi {
+  bool state[17];
+} Stati;
+
+Comandi comandi;
+Comandi comandi_p;
+
+//--------------------------ESP-NOW
+#ifndef TABELLONE_MAC_ADDRESS
+  uint8_t broadcastAddress[] = {0x7C, 0x9E, 0xBD, 0xEE, 0x8B, 0x7C}; //7c:9e:bd:ee:8b:7c
+#else
+  uint8_t broadcastAddress[] = TABELLONE_MAC_ADDRESS;
+#endif
+
+uint32_t lastMessageDelivery = 0;
+bool ESP_NOWState = true;
+
+
 void initMCPs() {
   //inizializzo gli ingressi
   const byte a = 0;
@@ -79,7 +110,7 @@ void initMCPs() {
   mcp.pinMode(14, INPUT);
 }
 void initPins() {
-  pinMode(2, OUTPUT);
+  pinMode(CONNECTION_LED, OUTPUT);
   //Shift pin
   pinMode(shiftPin, INPUT);
   pinMode(shiftLed, OUTPUT);
@@ -91,7 +122,7 @@ void initPins() {
 void initSerial() {
   //Seriale
   Serial.begin(115200); // COM5
-  Serial.println("");
+  Serial.printf("Git commit hash: %s", __GIT_COMMIT__);
 }
 void initWiFi() {
   while (WiFi.status() != WL_CONNECTED) {
@@ -113,13 +144,83 @@ void initWiFi() {
   Serial.println(WiFi.localIP());
 }
 
-void setup() {
-  BT.begin("Pulsantiera");
-  initMCPs();
-  initPins();
-  initSerial();
-  initWiFi();
+//--------------------------ESP-NOW
+int32_t getWiFiChannel(const char *ssid) {
+  if (int32_t n = WiFi.scanNetworks()) {
+    for (uint8_t i = 0; i < n; i++) {
+      if (!strcmp(ssid, WiFi.SSID(i).c_str())) {
+        return WiFi.channel(i);
+      }
+    }
+  }
+  return 0;
 }
+
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.print("\r\nLast Packet Send Status:\t");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  Serial.println("WiFi channel: " + String(WiFi.channel()));
+  if (status == 0) {
+    lastMessageDelivery = millis();
+    digitalWrite(CONNECTION_LED, 1);
+  }
+  else {
+    digitalWrite(CONNECTION_LED, 0);
+  }
+}
+
+bool checkNOWConnection() {
+  return millis() - lastMessageDelivery > ESP_NOW_MAX_TIMEOUT ? false : true;
+}
+
+bool initESP_NOW() {
+  // Impostazione Wi-Fi Station
+  WiFi.mode(WIFI_STA);
+
+  //Configurazione canale WiFi
+  int32_t channel = getWiFiChannel("Tabellone");
+  esp_wifi_set_promiscuous(true);
+  esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_promiscuous(false);
+
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Errore inizializazione ESP-NOW");
+    return false;
+  }
+
+  // Settagio calback in scrittura
+  esp_now_register_send_cb(OnDataSent);
+
+  // Registrazione peer
+  //  esp_now_peer_info_t peerInfo;
+  //  peerInfo.channel = 0;
+  //  peerInfo.encrypt = false;
+  //
+  //  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  //
+  //  // Aggiunta peer
+  //  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+  //    Serial.println("Aggiunta peer fallita. WiFi channel: " + String(WiFi.channel()));
+  //    return false;
+  //  }
+  return true;
+}
+
+void sendMessageViaNOW() {
+  // Send message via ESP-NOW
+  if (ESP_NOWState) {
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &comandi, sizeof(Comandi));
+    if (result == ESP_OK) {
+      Serial.println("Sent with success");
+    }
+    else {
+      Serial.println("Error sending the data");
+    }
+  }
+}
+
+//--------------------------ESP-NOW
 
 bool checkConnection() {
   //Controlla di essere connesso al server
@@ -129,6 +230,44 @@ bool checkConnection() {
   } else {
     return false;
   }
+}
+
+void setup() {
+  //  initMCPs();
+  initPins();
+  initSerial();
+  //ESP_NOWState = initESP_NOW();//&& addPeerESP_NOW();
+  
+  // Impostazione Wi-Fi Station
+  WiFi.mode(WIFI_STA);
+  //Configurazione canale WiFi
+  int32_t channel = getWiFiChannel("Tabellone");
+  esp_wifi_set_promiscuous(true);
+  esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_promiscuous(false);
+
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Errore inizializazione ESP-NOW");
+    return;
+  }
+
+  // Settagio calback in scrittura
+  esp_now_register_send_cb(OnDataSent);
+  //  // Registrazione peer
+  esp_now_peer_info_t peerInfo;
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+
+  // Aggiunta peer
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Aggiunta peer fallita... Reboot in 5sec...");
+    delay(5000);
+    ESP.restart();
+  }
+  //  initWiFi();
 }
 
 void readSerial() {
@@ -152,44 +291,60 @@ void readSerial() {
     BT.println(dataFromSerial);
   }
 }
-uint32_t t0 = 0;
+
 void readVirtualButtons(){
   if (serial == true) {
-    // for (byte i = 0; i < 16; i++) {
-    //   state[i] = 0;
-    // }
-    // if(millis()-t0 > 1000){
-    //   Serial.print("dataFromSerial: ");
-    //   Serial.println(dataFromSerial);
-    //   t0 = millis();
-    // }
     if (dataFromSerial != ""){
       //Legge in seriale i valori
       
       for (byte i = 0; i < 17; i++) {
-        state[i] = splitString(dataFromSerial, '.', i).toInt();
+        comandi.state[i] = splitString(dataFromSerial, '.', i).toInt();
       }
       dataFromSerial = "";
     }
   }
 }
 
+// void evaulateSerial(String data) {
+//   if (data == "Sei Arduino?") {
+//     Serial.println("Si Sono Arduino!\n\r");
+//   }
+//   else {
+//     String cmd1 = splitString(data, '.', 0);
+//     int shift = splitString(data, '.', 2).toInt();
+//     for (byte i = 0; i < 16; i++) {
+//       if (nomi[i] == cmd1) {
+//         comandi.state[i] = 1;
+//       } else {
+//         comandi.state[i] = 0;
+//       }
+//       if (shift == 1) {
+//         comandi.state[16] = 1;
+//       } else if (shift == 0) {
+//         comandi.state[16] = 0;
+//       }
+//     }
+//     //Serial.println(formact());
+//   }
+
+// }
+
 void readButtons() {
   //Legge i pulsanti
-  initMCPs();
+  //initMCPs();
   int i;
   for (i = 0; i < 13; i++) {
-    state[i] = !mcp.digitalRead(pins[i]);
+    comandi.state[i] = !mcp.digitalRead(pins[i]);
   }
-  state[13] = mcp.digitalRead(13);
-  state[14] = mcp.digitalRead(14);
-  state[15] = mcp.digitalRead(15);
+  comandi.state[13] = mcp.digitalRead(13);
+  comandi.state[14] = mcp.digitalRead(14);
+  comandi.state[15] = mcp.digitalRead(15);
 
-  state[16] = digitalRead(shiftPin);
+  comandi.state[16] = digitalRead(shiftPin);
   digitalWrite(shiftLed, state[16]);
 
   for (int i = 0; i < 16; i++) {
-    state_p[i] = state[i];
+    comandi_p.state[i] = comandi.state[i];
   }
 }
 
@@ -197,10 +352,11 @@ String formact() {
   //Prendi i valori dal globale e trasformali in una stringa
   String text = "";
   int i;
-  for (i = 0; i < 17; i++ ) {
-    text += String(state[i]) + ".";
+  for (i = 0; i < 16; i++ ) {
+    text += String(comandi.state[i]) + ".";
   }
-  text += timeString + "\r";
+  text += String(comandi.state[16]);
+  text += "\r";
   return text;
 }
 
@@ -315,18 +471,23 @@ void loop() {
   }else{
     readButtons();
   }
-  if (checkConnection()) {
+  if (checkNOWConnection() && ESP_NOWState) {
     String toSend = formact();
     Serial.println(toSend);
-    sendClient(toSend);
-    dataFromServer = readClient();
-    deComp(dataFromServer);
-    client.stop();
-    client.flush();
+    sendMessageViaNOW();
+    //    sendClient(toSend);
+    //    dataFromServer = readClient();
+    //    deComp(dataFromServer);
+    //    client.stop();
+    //    client.flush();
     delay(125);
   } else {
-    reconnect();
+    //    //reconnect();
+    Serial.println("Error to connect ESPNOW!!... rebooting...");
+    delay(5000);
+    ESP.restart();
   }
+  //Serial.println("LoopTime: " + String(millis() - loopTime));
 }
 
 String splitString(String str, char sep, int index) {
