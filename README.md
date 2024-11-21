@@ -71,3 +71,45 @@ E' composta da un modulo WiFi e da 17 pulsanti, ognuno con una funzione specific
   - ESP32 Arduino Core (1.0.4) by [Espressif](https://github.com/espressif/arduino-esp32/tree/1.0.4)
   - Adafruit MCP23017 (1.3.0) by [Adafruit](https://github.com/adafruit/Adafruit-MCP23017-Arduino-Library/tree/1.0.3)
   - SetteSeg by Alan Masutti
+
+## Come compilare il programma
+
+### Prerequisiti
+  1. Installare Visual Studio Code da [qui](https://code.visualstudio.com/)
+  2. Installare l'estensione PlatformIO IDE da [qui](https://platformio.org/)
+  3. Installare Git da [qui](https://git-scm.com/)
+  4. Installare GitHub Desktop da [qui](https://desktop.github.com/)
+  5. Clonare il repository con GitHub Desktop con il comando 
+  ```bash
+  git clone https://github.com/alanmasu/Tabellone_segnapunti.git
+  ```
+  6. Aprire il progetto con Visual Studio Code (File -> Open Folder)
+  7. 
+### Struttura del progetto ed ambienti di sviluppo
+Il progetto di PlatformIO è caratterizzato dalla possibilità di avere più ambienti di sviluppo, ognuno con le proprie impostazioni di compilazione.
+In questo progetto ho scelto di usare due environment:
+ - `env:tabellone` per il tabellone segnapunti
+ - `env:pulsantiera` per la pulsantiera
+
+In questo modo ogni ambiente ha le proprie impostazioni di compilazione, i propri sorgenti, e le proprie librerie. Inoltre si può scegliere anche la porta sulla quale caricare il programma direttamente dalle impostazioni del ambiente stesso, il che ci permette di caricare sempre il programma nel modo corretto.
+
+### Compilazione
+Per compilare il programma, basta selezionare l'environment desiderato e premere il tasto di compilazione (la freccia in basso a sinistra) oppure la shortcut (CTRL + ALT + B).
+
+Cambiando environment, PlatformIO si preoccuperà di scariare tutte le dipendenze necessarie per compilare il programma, quindi alla prima compilazione potrebbe volerci un po' di tempo.
+
+### Caricamento
+Per caricare il programma, prima di tutto è necessario collegare la/le scheda/e al computer tramite un cavo USB. 
+Se non esiste, creare il file `upload_extra_configs.ino` nella cartella del progetto e inserire il seguente codice:
+```ini
+[env:tabellone]
+upload_port = <tabellone_port_name>
+
+[env:pulsantiera]
+upload_port = <pulsantiera_port_name>
+```
+
+Poi basta selezionare l'environment desiderato e premere il tasto di caricamento (la freccia in basso a destra) oppure la shortcut (CTRL + ALT + U).
+
+### Note a livello hardware 
+Per il corretto funzionamento del programma, è necessario controllare, ed in caso modificare, gli indirizzi MAC delle schede ESP32, in quanto potrebbero essere diversi da quelli presenti nel codice.
