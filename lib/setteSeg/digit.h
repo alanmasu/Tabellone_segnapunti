@@ -20,13 +20,13 @@ public:
 	digit(int b, int c);
 	digit(int a, int b, int c, int d, int e, int f, int g);
 	digit(int a, int b, int c, int d, int e, int f, int g, int decimalp);
-	void begin(char mode, Adafruit_MCP23017 _mcp);
+	void begin(char mode, Adafruit_MCP23017& _mcp);
 	void write(int n);
 	void clear();
 	void test();
 	int read();
 private:
-	Adafruit_MCP23017 mcp;
+	Adafruit_MCP23017* mcp;
 	void init();
 	char _mode;
 	int _number;
