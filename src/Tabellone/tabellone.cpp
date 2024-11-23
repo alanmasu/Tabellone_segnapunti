@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include "server.h"
+#include <hardware.h>
 #include <Ticker.h>
 #include <SPI.h>
 #include <EEPROM.h>
@@ -696,7 +697,7 @@ void mainProcess() {
       } else {
         if (millis() - time_p > 1000 ) {          // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA
           if (valori.mode == tabellone) {         // Modalità tabellone
-            if (isOTAcmd) {
+            if (isOTAcmd && valori.stato != run) {
               enteringOtaMode();
               valori.mode = OTA;
             } else if (comandi.state[16] == 0) {  // Shift non premuto in mod tabellone
@@ -781,6 +782,16 @@ void mainProcess() {
   }
 }
 
+void clearCommands(){
+  Serial.println("Cleared commands!");
+  comandi.state[13] = 0;
+  comandi.state[14] = 0;
+  comandi.state[15] = 0;
+  comandi_p.state[13] = 0;
+  comandi_p.state[14] = 0;
+  comandi_p.state[15] = 0;
+}
+
 void automaticMode() {
   if (millis() - time_c > time_o && valori.mode != orologio && valori.stato != run) {
     valori.mode = orologio;
@@ -795,6 +806,7 @@ Mode getMode() {
 
 void setMode(Mode mode) {
   valori.mode = mode;
+  Serial.printf("Setted mode to %d\n", valori.mode);
 }
 
 void displayPrint() {

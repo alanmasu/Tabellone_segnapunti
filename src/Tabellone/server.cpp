@@ -16,6 +16,9 @@ FSWebServer myWebServer(FILESYSTEM, server);
 char ssid[] = "Tabellone";
 char pass[] = "Tabellone";
 
+//OTA
+bool exitingOtaMode = false;
+
 void initOTA() {
   // Port defaults to 3232
   // ArduinoOTA.setPort(3232);
@@ -58,6 +61,14 @@ void initOTA() {
   ArduinoOTA.begin();
 }
 
+bool getExitingOtaMode(){
+  return exitingOtaMode;
+}
+
+void setExitingOtaMode(bool value){
+  exitingOtaMode = value;
+}
+
 ////////////////////////////////  Server  /////////////////////////////////////////
 void initServer(){
  // FILESYSTEM INIT
@@ -67,7 +78,6 @@ void initServer(){
   myWebServer.setAPmode(ssid, pass);
 
   // Add custom page handlers to webserver
-  //myWebServer.addHandler("/led", HTTP_GET, handleLed);
   myWebServer.addHandler("/exitOtaMode", HTTP_GET, exitOtaMode);
 
   // Start webserver
@@ -103,13 +113,20 @@ void startFilesystem(){
 
 void enteringOtaMode(){
   Serial.println("Entering OTA mode");
+  clearCommands();
   initOTA();
   initServer();
 }
 
 void exitOtaMode(){
+  clearCommands();
+  setMode(tabellone);
+  setExitingOtaMode(true);
   Serial.println("Exiting OTA mode");
+  // Sending a redirect to "/" will redirect the user to the root page
+  WebServerClass* webRequest = myWebServer.getRequest();
+  webRequest->sendHeader("Location", String("/"), true);
+  webRequest->send(307, "text/plain", "Temporary Redirect"); 
   ArduinoOTA.end();
   WiFi.softAPdisconnect();
-  setMode(tabellone);
 }

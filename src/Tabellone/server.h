@@ -11,6 +11,9 @@ void initOTA();
 void initServer();
 void startFilesystem();
 
+bool getExitingOtaMode();
+void setExitingOtaMode(bool value);
+
 void enteringOtaMode();
 void exitOtaMode();
 

@@ -50,6 +50,7 @@ void tik();
 void readSerial(String &str);
 void restoreTabMode();
 void mainProcess();
+void clearCommands();
 void automaticMode();
 Mode getMode();
 void setMode(Mode mode);

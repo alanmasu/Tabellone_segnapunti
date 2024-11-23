@@ -64,16 +64,34 @@ void setup() {
   initRTC();
 }
 
+uint32_t serialTimer = 0;
+
 void loop() {
   String serialData;
   readSerial(serialData);                           //Leggi la seriale
-  if (checkNowConnection()) {                       //Controlli la connessione
+  bool nowConnection = checkNowConnection();        //Controlli la connessione
+  bool exitingOtaMode = getExitingOtaMode();        //Controlli se stai uscendo da mod. OTA
+  if(nowConnection || exitingOtaMode){              //Se sei connesso o stai uscendo da mod. OTA...
     restoreTabMode();                               //Se ti trovi in mod. Orologio allora ti re-imposti a mod. Tab
     time_c = millis();                              //Salvi il timestamp per il passaggio auto da una mod all'altra
     mainProcess();                                  //Elabori i comandi ricevuti
     sendViaNow();                                   //Invii i dati alla pulsantiera
-  } else {
-    automaticMode();                                //Se non sei connesso da almeno time_o ms allora entri in automatico in mod Orologio
+    
+    //DEBUG
+    // if(exitingOtaMode){
+    //   if(millis() - serialTimer > 1000){
+    //     Serial.println("Sending data after exiting OTA mode!");
+    //     Serial.printf("Mode: %d\n", getMode());
+    //     serialTimer = millis();
+    //   }
+    // }
+    //END DEBUG
+
+    if(nowConnection && exitingOtaMode){            //Se sei connesso e stai uscendo da mod. OTA...
+      setExitingOtaMode(false);                     //... allora reimposti la variabile di uscita da mod. OTA
+    }
+  } else if(getMode() != OTA) {                     //Se non sei in mod. OTA...
+    automaticMode();                                //... e non sei connesso da almeno time_o ms allora entri in automatico in mod Orologio
   }
   switch (getMode()) {                     
     case tabellone:                                 //Modalita' Tabellone
@@ -92,6 +110,5 @@ void loop() {
       break;
   }
   duePuntiWrite();                                  //Scrivi i due punti
-  serverLoop();                                     //Loop del WebServer
   delay(50);
 }
