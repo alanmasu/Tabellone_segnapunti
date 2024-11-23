@@ -1,0 +1,25 @@
+#######################################
+# Syntax Coloring Map For setteSeg
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+setteSeg	KEYWORD1
+digit		KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+begin 	KEYWORD2
+write	KEYWORD2
+month	KEYWORD2
+clear	KEYWORD2
+test	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
