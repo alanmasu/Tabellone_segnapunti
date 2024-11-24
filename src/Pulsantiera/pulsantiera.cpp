@@ -28,9 +28,9 @@ static esp_now_peer_info_t peerInfo;
 const byte pins[16] = {1, 0, 3, 2, 4, 6, 5, 7, 9, 8, 11, 10, 12, 13, 14, 15};
 const byte shiftPin = 36;
 const byte shiftLed = 13;
-const byte startLed = 12;
 const byte stopLed = 14;
-const byte resetLed = 27;
+const byte startLed = 27;
+const byte resetLed = 12;
 
 //Struct per comunicazione comandi
 Comandi comandi;  //Invio dei comandi
@@ -83,12 +83,28 @@ void initMCPs() {
 }
 
 void initPins() {
+  const short delayTime = 500;
   //Shift pin
   pinMode(shiftPin, INPUT);
   pinMode(shiftLed, OUTPUT);
   pinMode(startLed, OUTPUT);
   pinMode(stopLed, OUTPUT);
   pinMode(resetLed, OUTPUT);
+  
+  // Serial.println("Start LED");
+  digitalWrite(startLed, 1);
+  delay(delayTime);
+  digitalWrite(startLed, 0);
+
+  // Serial.println("Stop LED");
+  digitalWrite(stopLed, 1);
+  delay(delayTime);
+  digitalWrite(stopLed, 0);
+
+  // Serial.println("RST LED");
+  digitalWrite(resetLed, 1);
+  delay(delayTime);
+  digitalWrite(resetLed, 0);
 }
 
 void initESPNOW() {
@@ -406,20 +422,20 @@ void evaluateData() {
       }
       digitalWrite(resetLed, !stato);
       digitalWrite(stopLed, stato);
-    } else if (recv.mode == tabellone) {
+    } else if (recv.mode == orologio) {
       digitalWrite(startLed, 0);
       digitalWrite(resetLed, 0);
       digitalWrite(stopLed, 0);
     }
   } else {
-    if (stato == 0) {
-      digitalWrite(startLed, !mode);
-      digitalWrite(resetLed, !mode);
-      digitalWrite(stopLed, mode);
-    } else {
+    if (recv.mode == tabellone) {
+      digitalWrite(startLed, mode);
+      digitalWrite(stopLed, !mode);
+      digitalWrite(resetLed, LOW);
+    } else if(recv.mode == orologio) {
       digitalWrite(startLed, 0);
       digitalWrite(resetLed, 0);
-      digitalWrite(stopLed, 0);
+      digitalWrite(stopLed, 1);
     }
   }
   if(recv.mode != OTA && recv.mode != tabStatus.mode){
