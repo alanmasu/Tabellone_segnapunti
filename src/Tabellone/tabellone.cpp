@@ -937,6 +937,11 @@ void OTAPrintOnSerial(){
   Serial.println("-.-.-.ot.a.-.-.-.-");
 }
 
+void OTAPrint(){
+  c_m.print("ot");
+  c_s.print("a");
+}
+
 void duePuntiWrite() {
   mcp[2].digitalWrite(7, stateP);
   mcp[2].digitalWrite(15, stateP);
