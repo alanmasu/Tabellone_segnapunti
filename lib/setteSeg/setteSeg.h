@@ -20,6 +20,7 @@ class setteSeg{
 		setteSeg(digit digit3, digit digit2, digit digit1);
 		void begin(char digitsNotUsed);
 		void write(int n);
+		void print(String str);
 		void clear();
 		void test();
 		int read();
