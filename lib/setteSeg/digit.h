@@ -22,6 +22,7 @@ public:
 	digit(int a, int b, int c, int d, int e, int f, int g, int decimalp);
 	void begin(char mode, Adafruit_MCP23017 _mcp);
 	void write(int n);
+	void print(char c);
 	void clear();
 	void test();
 	int read();

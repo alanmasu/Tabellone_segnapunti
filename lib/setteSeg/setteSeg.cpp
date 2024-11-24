@@ -68,6 +68,14 @@ void setteSeg::write(int n) {
     _digit1.write(int((n % 100) % 10));
   }
 }
+
+void setteSeg::print(String str){
+  if(str != ""){
+    _digit2.print(str.charAt(0));
+    _digit1.print(str.charAt(1));
+  }
+}
+
 void setteSeg::clear() {
   _digit1.clear();
   delay(20);
