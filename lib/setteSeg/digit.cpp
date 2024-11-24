@@ -227,93 +227,93 @@ void digit::print(char c){
   switch (c) {
     case 'a':
     case 'A':
-      digitalWrite(_a, On);
-      digitalWrite(_b, On);
-      digitalWrite(_c, On);
-      digitalWrite(_d, On);
-      digitalWrite(_e, On);
-      digitalWrite(_f, !On);
-      digitalWrite(_g, On);
+      mcp.digitalWrite(_a, On);
+      mcp.digitalWrite(_b, On);
+      mcp.digitalWrite(_c, On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, !On);
+      mcp.digitalWrite(_g, On);
       break;
     case 'c':
     case 'C':
-      digitalWrite(_a, !On);
-      digitalWrite(_b, !On);
-      digitalWrite(_c, On);
-      digitalWrite(_d, On);
-      digitalWrite(_e, !On);
-      digitalWrite(_f, !On);
-      digitalWrite(_g, On);
+      mcp.digitalWrite(_a, !On);
+      mcp.digitalWrite(_b, !On);
+      mcp.digitalWrite(_c, On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, !On);
+      mcp.digitalWrite(_f, !On);
+      mcp.digitalWrite(_g, On);
       break;  
     case 'e':
     case 'E':
-      digitalWrite(_a, On);
-      digitalWrite(_b, On);
-      digitalWrite(_c, !On);
-      digitalWrite(_d, On);
-      digitalWrite(_e, On);
-      digitalWrite(_f, On);
-      digitalWrite(_g, On);
+      mcp.digitalWrite(_a, On);
+      mcp.digitalWrite(_b, On);
+      mcp.digitalWrite(_c, !On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, On);
+      mcp.digitalWrite(_g, On);
       break;
     case 'i':
     case 'I':
-      digitalWrite(_a, !On);
-      digitalWrite(_b, !On);
-      digitalWrite(_c, !On);
-      digitalWrite(_d, !On);
-      digitalWrite(_e, On);
-      digitalWrite(_f, On);
-      digitalWrite(_g, !On);
+      mcp.digitalWrite(_a, !On);
+      mcp.digitalWrite(_b, !On);
+      mcp.digitalWrite(_c, !On);
+      mcp.digitalWrite(_d, !On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, On);
+      mcp.digitalWrite(_g, !On);
       break;
     case 'm':
     case 'M':
-      digitalWrite(_a, On);
-      digitalWrite(_b, !On);
-      digitalWrite(_c, On);
-      digitalWrite(_d, On);
-      digitalWrite(_e, On);
-      digitalWrite(_f, !On);
-      digitalWrite(_g, On);
+      mcp.digitalWrite(_a, On);
+      mcp.digitalWrite(_b, !On);
+      mcp.digitalWrite(_c, On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, !On);
+      mcp.digitalWrite(_g, On);
       break;
     case 'n':
     case 'N':
-      digitalWrite(_a, On);
-      digitalWrite(_b, On);
-      digitalWrite(_c, On);
-      digitalWrite(_d, !On);
-      digitalWrite(_e, On);
-      digitalWrite(_f, On);
-      digitalWrite(_g, On);
+      mcp.digitalWrite(_a, On);
+      mcp.digitalWrite(_b, On);
+      mcp.digitalWrite(_c, On);
+      mcp.digitalWrite(_d, !On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, On);
+      mcp.digitalWrite(_g, On);
       break;
     case 'o':
     case 'O':
-      digitalWrite(_a, !On);
-      digitalWrite(_b, !On);
-      digitalWrite(_c, On);
-      digitalWrite(_d, On);
-      digitalWrite(_e, On);
-      digitalWrite(_f, !On);
-      digitalWrite(_g, On);
+      mcp.digitalWrite(_a, !On);
+      mcp.digitalWrite(_b, !On);
+      mcp.digitalWrite(_c, On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, !On);
+      mcp.digitalWrite(_g, On);
       break;
     case 'r':
     case 'R':
-      digitalWrite(_a, On);
-      digitalWrite(_b, On);
-      digitalWrite(_c, !On);
-      digitalWrite(_d, !On);
-      digitalWrite(_e, On);
-      digitalWrite(_f, On);
-      digitalWrite(_g, !On);
+      mcp.digitalWrite(_a, On);
+      mcp.digitalWrite(_b, On);
+      mcp.digitalWrite(_c, !On);
+      mcp.digitalWrite(_d, !On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, On);
+      mcp.digitalWrite(_g, !On);
       break;
     case 't':
     case 'T':
-      digitalWrite(_a, !On);
-      digitalWrite(_b, !On);
-      digitalWrite(_c, !On);
-      digitalWrite(_d, On);
-      digitalWrite(_e, On);
-      digitalWrite(_f, On);
-      digitalWrite(_g, On);
+      mcp.digitalWrite(_a, !On);
+      mcp.digitalWrite(_b, !On);
+      mcp.digitalWrite(_c, !On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, On);
+      mcp.digitalWrite(_g, On);
       break;
   }
 }
