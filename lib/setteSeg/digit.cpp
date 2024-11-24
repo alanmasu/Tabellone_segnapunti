@@ -216,6 +216,108 @@ void digit::write(int n) {
     }
   }
 }
+
+void digit::print(char c){
+  int On = 0;
+  if (_mode == 'k'){
+    On = 1;
+  } else if (_mode == 'a'){
+    On = 0;
+  }
+  switch (c) {
+    case 'a':
+    case 'A':
+      mcp.digitalWrite(_a, On);
+      mcp.digitalWrite(_b, On);
+      mcp.digitalWrite(_c, On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, !On);
+      mcp.digitalWrite(_g, On);
+      break;
+    case 'c':
+    case 'C':
+      mcp.digitalWrite(_a, !On);
+      mcp.digitalWrite(_b, !On);
+      mcp.digitalWrite(_c, On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, !On);
+      mcp.digitalWrite(_f, !On);
+      mcp.digitalWrite(_g, On);
+      break;  
+    case 'e':
+    case 'E':
+      mcp.digitalWrite(_a, On);
+      mcp.digitalWrite(_b, On);
+      mcp.digitalWrite(_c, !On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, On);
+      mcp.digitalWrite(_g, On);
+      break;
+    case 'i':
+    case 'I':
+      mcp.digitalWrite(_a, !On);
+      mcp.digitalWrite(_b, !On);
+      mcp.digitalWrite(_c, !On);
+      mcp.digitalWrite(_d, !On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, On);
+      mcp.digitalWrite(_g, !On);
+      break;
+    case 'm':
+    case 'M':
+      mcp.digitalWrite(_a, On);
+      mcp.digitalWrite(_b, !On);
+      mcp.digitalWrite(_c, On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, !On);
+      mcp.digitalWrite(_g, On);
+      break;
+    case 'n':
+    case 'N':
+      mcp.digitalWrite(_a, On);
+      mcp.digitalWrite(_b, On);
+      mcp.digitalWrite(_c, On);
+      mcp.digitalWrite(_d, !On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, On);
+      mcp.digitalWrite(_g, On);
+      break;
+    case 'o':
+    case 'O':
+      mcp.digitalWrite(_a, !On);
+      mcp.digitalWrite(_b, !On);
+      mcp.digitalWrite(_c, On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, !On);
+      mcp.digitalWrite(_g, On);
+      break;
+    case 'r':
+    case 'R':
+      mcp.digitalWrite(_a, On);
+      mcp.digitalWrite(_b, On);
+      mcp.digitalWrite(_c, !On);
+      mcp.digitalWrite(_d, !On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, On);
+      mcp.digitalWrite(_g, !On);
+      break;
+    case 't':
+    case 'T':
+      mcp.digitalWrite(_a, !On);
+      mcp.digitalWrite(_b, !On);
+      mcp.digitalWrite(_c, !On);
+      mcp.digitalWrite(_d, On);
+      mcp.digitalWrite(_e, On);
+      mcp.digitalWrite(_f, On);
+      mcp.digitalWrite(_g, On);
+      break;
+  }
+}
+
 int digit::read() {
   return _number;
 }
