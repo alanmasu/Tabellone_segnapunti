@@ -70,7 +70,10 @@ void setteSeg::write(int n) {
 }
 
 void setteSeg::print(String str){
-  if(str != ""){
+  if(str.length() == 1){
+    _digit2.print(str.charAt(0));
+    _digit1.clear();
+  }else if(str.length() == 2 ){
     _digit2.print(str.charAt(0));
     _digit1.print(str.charAt(1));
   }
