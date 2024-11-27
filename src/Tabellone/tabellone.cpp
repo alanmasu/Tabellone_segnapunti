@@ -79,6 +79,7 @@ unsigned long time_c;           //Tempo dall'ultima connessione della pulsantier
 
 //Per avanzamento veloce
 unsigned long time_p;           //Tempo dalla pressione del tasto
+unsigned long timeReflesh = 0;  //Tempo dall'ultimo reflesh dei dati in modalita' veloce
 
 //ESP-NOW
 #ifndef PULSANTEIRA_MAC_ADDRESS
@@ -99,6 +100,13 @@ bool RTC;           //Stato di configurazione RTC
 // //WiFi
 // char ssid[] = "Tabellone";
 // char pass[] = "Tabellone";
+
+//Definizione funzioni
+static void handleTabelloneMode(int button);
+static void handleTabelloneWhitShiftPressed(int button);
+static void handleTabelloneWhitContinuosPress(int button);
+static void handleOrologioMode(int button);
+static void handleOrologioWhitContinuosPress(int button);
 
 
 //Definizioni delle funzioni
@@ -247,13 +255,13 @@ void testTab() {
 }
 
 void displayWrite() {
-  pt1.write(valori.val[0]);
-  pt2.write(valori.val[1]);
-  periodo.write(valori.val[2]);
-  c_m.write(valori.val[3]);
-  c_s.write(valori.val[4]);
-  falli1.write(valori.val[5]);
-  falli2.write(valori.val[6]);
+  pt1.write(valori.val[PUNTI_A]);
+  pt2.write(valori.val[PUNTI_B]);
+  periodo.write(valori.val[PERIODO]);
+  c_m.write(valori.val[CRONO_MIN]);
+  c_s.write(valori.val[CRONO_SEC]);
+  falli1.write(valori.val[FALLI_A]);
+  falli2.write(valori.val[FALLI_B]);
 }
 
 bool initESP_NOW() {
@@ -434,13 +442,13 @@ String getTime() {
 }
 
 void tik() {
-  if (valori.val[4] == 0) {
-    valori.val[4] = 59;
-    valori.val[3] --;
+  if (valori.val[CRONO_SEC] == 0) {
+    valori.val[CRONO_SEC] = 59;
+    valori.val[CRONO_MIN] --;
   } else {
-    valori.val[4]--;
+    valori.val[CRONO_SEC]--;
   }
-  if (valori.val[3] == 0 && valori.val[4] == 0) {
+  if (valori.val[CRONO_MIN] == 0 && valori.val[CRONO_SEC] == 0) {
     finishTime();
   }
 }
@@ -483,181 +491,282 @@ void restoreTabMode() {
   }
 }
 
+void handleTabelloneMode(int button){
+  switch (button) {
+    case BTN_PUNTI_A_PIU:
+      valori.val[PUNTI_A] = valori.val[PUNTI_A] == 199 ? 0 : valori.val[PUNTI_A] + 1;
+      break;
+    case BTN_PUNTI_A_MENO:
+      valori.val[PUNTI_A] = valori.val[PUNTI_A] == 0 ? 199 : valori.val[PUNTI_A] - 1;
+      break;
+    case BTN_PUNTI_B_PIU:
+      valori.val[PUNTI_B] = valori.val[PUNTI_B] == 199 ? 0 : valori.val[PUNTI_B] + 1;
+      break;
+    case BTN_PUNTI_B_MENO:
+      valori.val[PUNTI_B] = valori.val[PUNTI_B] == 0 ? 199 : valori.val[PUNTI_B] - 1;
+      break;
+    case BTN_PUNTI_R:
+      if (valori.stato  == stop) {
+        valori.val[PUNTI_A] = 0;
+        valori.val[PUNTI_B] = 0;
+      }
+      break;
+    case BTN_PERIODO_PIU:
+      valori.val[PERIODO] = valori.val[PERIODO] == 9 ? 0 : valori.val[PERIODO] + 1;
+      break;
+    case BTN_PERIODO_MENO:
+      valori.val[PERIODO] = valori.val[PERIODO] == 0 ? 9 : valori.val[PERIODO] - 1;
+      break;
+    case BTN_PERIODO_R:
+      if (valori.stato  == stop) {
+        valori.val[PERIODO] = 0;
+      }
+      break;
+    case BTN_CRONO_MIN_PIU:
+      valori.val[CRONO_MIN] = valori.val[CRONO_MIN] == 99 ? 0 : valori.val[CRONO_MIN] + 1;
+      break;
+    case BTN_CRONO_MIN_MENO:
+      valori.val[CRONO_MIN] = valori.val[CRONO_MIN] == 0 ? 99 : valori.val[CRONO_MIN] - 1;
+      break;
+    case BTN_CRONO_SEC_PIU:
+      if (valori.stato  == stop) {
+        if (valori.val[CRONO_SEC] == 59) {
+          valori.val[CRONO_MIN] = valori.val[CRONO_MIN] == 99 ? 0 : valori.val[CRONO_MIN] + 1;
+        }
+        valori.val[CRONO_SEC] = valori.val[CRONO_SEC] == 59 ? 0 : valori.val[CRONO_SEC] + 1;
+      }
+      break;
+    case BTN_CRONO_SEC_MENO:
+      if (valori.stato  == stop) {
+        if (valori.val[CRONO_SEC] == 0) {
+          valori.val[CRONO_MIN] = valori.val[CRONO_MIN] == 0 ? 99 : valori.val[CRONO_MIN] - 1;
+        }
+        valori.val[CRONO_SEC] = valori.val[CRONO_SEC] == 0 ? 59 : valori.val[CRONO_SEC] - 1;
+      }
+      break;
+    case BTN_CRONO_R:
+      if (valori.stato  == stop) {
+        valori.val[CRONO_MIN] = 0;
+        valori.val[CRONO_SEC] = 0;
+      }
+      break;
+    case BTN_PLAY://P
+      if (valori.val[CRONO_MIN] != 0 || valori.val[CRONO_SEC] != 0) {
+        crono.attach(1, tik);
+        timer2p.attach(0.5, duePunti);
+        valori.stato = run;
+      }
+      break;
+    case BTN_STOP://S
+      crono.detach();
+      timer2p.detach();
+      stateP = true;
+      valori.stato = stop;
+      break;
+    case BTN_RESET:
+      if (valori.stato == stop) {
+        for (byte i = 0; i < 9; i++) {
+          valori.val[i] = 0;
+        }
+      }
+      break;
+  }
+}
+void handleTabelloneWhitShiftPressed(int button){
+  switch (button) {
+    case BTN_PUNTI_A_PIU: //Falli 1
+      valori.val[FALLI_A] = valori.val[FALLI_A] == 5 ? 0 : valori.val[FALLI_A] + 1;
+      break;
+    case BTN_PUNTI_A_MENO:
+      valori.val[FALLI_A] = valori.val[FALLI_A] == 0 ? 5 : valori.val[FALLI_A] - 1;
+      break;
+    case BTN_PUNTI_B_PIU: //Falli 2
+      valori.val[FALLI_B] = valori.val[FALLI_B] == 5 ? 0 : valori.val[FALLI_B] + 1;
+      break;
+    case BTN_PUNTI_B_MENO:
+      valori.val[FALLI_B] = valori.val[FALLI_B] == 0 ? 5 : valori.val[FALLI_B] - 1;
+      break;
+    case BTN_PUNTI_R: //Falli reset
+      if (valori.stato  == stop) {
+        valori.val[FALLI_A] = 0;
+        valori.val[FALLI_B] = 0;
+      }
+      break;
+    case BTN_PERIODO_PIU:
+      valori.val[PERIODO] = valori.val[PERIODO] == 9 ? 0 : valori.val[PERIODO] + 1;
+      break;
+    case BTN_PERIODO_MENO:
+      valori.val[PERIODO] = valori.val[PERIODO] == 0 ? 9 : valori.val[PERIODO] - 1;
+      break;
+    case BTN_PERIODO_R:
+      if (valori.stato  == stop) {
+        valori.val[PERIODO] = 0;
+      }
+      break;
+    case BTN_CRONO_MIN_PIU:
+      valori.val[TIMEOUT_A] = valori.val[TIMEOUT_A] == 3 ? 0 : valori.val[TIMEOUT_A] + 1;
+      crono.detach();
+      timer2p.detach();
+      valori.stato  = stop;
+      stateP = 1;
+      break;
+    case BTN_CRONO_MIN_MENO:
+      valori.val[TIMEOUT_A] = valori.val[TIMEOUT_A] == 0 ? 3 : valori.val[TIMEOUT_A] - 1;
+      crono.detach();
+      timer2p.detach();
+      valori.stato  = stop;
+      stateP = 1;
+      break;
+    case BTN_CRONO_SEC_PIU:
+      valori.val[TIMEOUT_B] = valori.val[TIMEOUT_B] == 3 ? 0 : valori.val[TIMEOUT_B] + 1;
+      crono.detach();
+      timer2p.detach();
+      valori.stato  = stop;
+      stateP = 1;
+      break;
+    case BTN_CRONO_SEC_MENO:
+      valori.val[TIMEOUT_B] = valori.val[TIMEOUT_B] == 0 ? 3 : valori.val[TIMEOUT_B] - 1;
+      crono.detach();
+      timer2p.detach();
+      valori.stato  = stop;
+      stateP = 1;
+      break;
+    case BTN_CRONO_R:
+      if (valori.stato  == stop) {
+        valori.val[TIMEOUT_A] = 0;
+        valori.val[TIMEOUT_B] = 0;
+      }
+      break;
+    case BTN_PLAY://Orologio
+      if (valori.stato  == stop && valori.mode != orologio) {
+        valori.mode = orologio;
+        clearTab();
+        valori.modeImpostata  = true;
+        timer2p.attach(0.5, duePunti);
+      }
+      break;
+    case BTN_STOP://Tabellone
+      valori.mode = tabellone;
+      valori.modeImpostata  = false;
+      timer2p.detach();
+      stateP = true;
+      displayWrite();
+      break;
+    case BTN_RESET:
+      if (valori.stato  == stop) {
+        for (byte i = 0; i < 9; i++) {
+          valori.val[i] = 0;
+        }
+      }
+      break;
+  }
+}
+void handleTabelloneWhitContinuosPress(int button){
+  switch (button) {
+    case BTN_PUNTI_A_PIU:
+      valori.val[PUNTI_A] = (valori.val[PUNTI_A] + 5) >= 199 ? 0 : valori.val[PUNTI_A] + 5;
+      break;
+    case BTN_PUNTI_A_MENO:
+      valori.val[PUNTI_A] = (valori.val[PUNTI_A] - 5) <= 0 ? 199 : valori.val[PUNTI_A] - 5;
+      break;
+    case BTN_PUNTI_B_PIU:
+      valori.val[PUNTI_B] = (valori.val[PUNTI_B] + 5) >= 199 ? 0 : valori.val[PUNTI_B] + 5;
+      break;
+    case BTN_PUNTI_B_MENO:
+      valori.val[PUNTI_B] = (valori.val[PUNTI_B] - 5) <= 0 ? 199 : valori.val[PUNTI_B] - 5;
+      break;
+    case BTN_CRONO_MIN_PIU:
+      valori.val[CRONO_MIN] = (valori.val[CRONO_MIN] + 5) >= 99 ? 0 : valori.val[CRONO_MIN] + 5;
+      break;
+    case BTN_CRONO_MIN_MENO:
+      valori.val[CRONO_MIN] = (valori.val[CRONO_MIN] - 5) <= 0 ? 99 : valori.val[CRONO_MIN] - 5;
+      break;
+    case BTN_CRONO_SEC_PIU:
+      if (valori.stato  == stop) {
+        if ((valori.val[CRONO_SEC] + 5) >= 59) {
+          valori.val[CRONO_MIN] = valori.val[CRONO_MIN] == 99 ? 0 : valori.val[CRONO_MIN] + 1;
+        }
+        valori.val[CRONO_SEC] = valori.val[CRONO_SEC] + 5 >= 59 ? 0 : valori.val[CRONO_SEC] + 5;
+      }
+      break;
+    case BTN_CRONO_SEC_MENO:
+      if (valori.stato  == stop) {
+        if ((valori.val[CRONO_SEC] - 5) <= 0) {
+          valori.val[CRONO_MIN] = (valori.val[CRONO_MIN]) == 0 ? 99 : valori.val[CRONO_MIN] - 1;
+        }
+        valori.val[CRONO_SEC] = valori.val[CRONO_SEC] - 5 <= 0 ? 59 : valori.val[CRONO_SEC] - 5;
+      }
+      break;
+  }
+}
+void handleOrologioMode(int button){
+  switch (button) {
+    case BTN_CRONO_MIN_PIU:
+      ore = ore >= 24 ? 0 : ore + 1;
+      impostaOra(minuti, ore);
+      break;
+    case BTN_CRONO_MIN_MENO:
+      ore = ore <= 0 ? 24 : ore - 1;
+      impostaOra(minuti, ore);
+      break;
+    case BTN_CRONO_SEC_PIU:
+      minuti = minuti >= 59 ? 0 : minuti + 1;
+      impostaOra(minuti, ore);
+      break;
+    case BTN_CRONO_SEC_MENO:
+      minuti = minuti <= 0 ? 59 : minuti - 1;
+      impostaOra(minuti, ore);
+      break;
+    case BTN_STOP://S
+      valori.mode = tabellone;
+      Serial.println("STOP + SHIFT IN OROLOGIO");
+      stateP = true;
+      valori.modeImpostata = false;
+      // timer2p.detach();
+      // displayWrite();
+      displayPrintOnSerial();
+      break;
+  }
+}
+void handleOrologioWhitContinuosPress(int button){
+  switch (button) {
+    case BTN_CRONO_MIN_PIU:
+      ore = ore + 2 >= 24 ? 0 : ore + 2;
+      impostaOra(minuti, ore);
+      break;
+    case BTN_CRONO_MIN_MENO:
+      ore = ore - 2 <= 0 ? 24 : ore - 2;
+      impostaOra(minuti, ore);
+      break;
+    case BTN_CRONO_SEC_PIU:
+      minuti = minuti + 5 >= 59 ? 0 : minuti + 5;
+      impostaOra(minuti, ore);
+      break;
+    case BTN_CRONO_SEC_MENO:
+      minuti = minuti - 5  <= 0 ? 59 : minuti - 5;
+      impostaOra(minuti, ore);
+      break;
+    case BTN_STOP://S
+      valori.mode = tabellone;
+      Serial.println("STOP + SHIFT IN OROLOGIO");
+      // timer2p.detach();
+      // displayWrite();
+      displayPrintOnSerial();
+      break;
+  }
+}
+
 void mainProcess() {
-  bool isOTAcmd = comandi.state[13] && comandi.state[14] && comandi.state[15];
+  bool isOTAcmd = comandi.state[BTN_PLAY] && comandi.state[BTN_STOP] && comandi.state[BTN_RESET];
   for (byte i = 0; i < 16; i++) {
     if (comandi.state[i] == 1 ) {
       if (comandi.state[i] != comandi_p.state[i]) {
         time_p = millis();
         if (valori.mode == tabellone) {
-          if (comandi.state[16] == 0) {//Shift non premuto in mod tab
-            switch (i) {
-              case 0:
-                valori.val[0] = valori.val[0] == 199 ? 0 : valori.val[0] + 1;
-                break;
-              case 1:
-                valori.val[0] = valori.val[0] == 0 ? 199 : valori.val[0] - 1;
-                break;
-              case 2:
-                valori.val[1] = valori.val[1] == 199 ? 0 : valori.val[1] + 1;
-                break;
-              case 3:
-                valori.val[1] = valori.val[1] == 0 ? 199 : valori.val[1] - 1;
-                break;
-              case 4:
-                if (valori.stato  == stop) {
-                  valori.val[0] = 0;
-                  valori.val[1] = 0;
-                }
-                break;
-              case 5:
-                valori.val[2] = valori.val[2] == 9 ? 0 : valori.val[2] + 1;
-                break;
-              case 6:
-                valori.val[2] = valori.val[2] == 0 ? 9 : valori.val[2] - 1;
-                break;
-              case 7:
-                if (valori.stato  == stop) {
-                  valori.val[2] = 0;
-                }
-                break;
-              case 8:
-                valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 1;
-                break;
-              case 9:
-                valori.val[3] = valori.val[3] == 0 ? 99 : valori.val[3] - 1;
-                break;
-              case 10:
-                if (valori.stato  == stop) {
-                  if (valori.val[4] == 59) {
-                    valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 1;
-                  }
-                  valori.val[4] = valori.val[4] == 59 ? 0 : valori.val[4] + 1;
-                }
-                break;
-              case 11:
-                if (valori.stato  == stop) {
-                  if (valori.val[4] == 0) {
-                    valori.val[3] = valori.val[3] == 0 ? 99 : valori.val[3] - 1;
-                  }
-                  valori.val[4] = valori.val[4] == 0 ? 59 : valori.val[4] - 1;
-                }
-                break;
-              case 12:
-                if (valori.stato  == stop) {
-                  valori.val[3] = 0;
-                  valori.val[4] = 0;
-                }
-                break;
-              case 13://P
-                if (valori.val[3] != 0 || valori.val[4] != 0) {
-                  crono.attach(1, tik);
-                  timer2p.attach(0.5, duePunti);
-                  valori.stato = run;
-                }
-                break;
-              case 14://S
-                crono.detach();
-                timer2p.detach();
-                stateP = true;
-                valori.stato = stop;
-                break;
-              case 15:
-                if (valori.stato == stop) {
-                  for (byte i = 0; i < 9; i++) {
-                    valori.val[i] = 0;
-                  }
-                }
-                break;
-            }
+          if (comandi.state[BTN_SHIFT] == 0) {//Shift non premuto in mod tab
+            handleTabelloneMode(i);
           } else { //Shift Premuto in mod. tab
-            switch (i) {
-              case 0: //Falli 1
-                valori.val[5] = valori.val[5] == 5 ? 0 : valori.val[5] + 1;
-                break;
-              case 1:
-                valori.val[5] = valori.val[5] == 0 ? 5 : valori.val[5] - 1;
-                break;
-              case 2: //Falli 2
-                valori.val[6] = valori.val[6] == 5 ? 0 : valori.val[6] + 1;
-                break;
-              case 3:
-                valori.val[6] = valori.val[6] == 0 ? 5 : valori.val[6] - 1;
-                break;
-              case 4: //Falli reset
-                if (valori.stato  == stop) {
-                  valori.val[5] = 0;
-                  valori.val[6] = 0;
-                }
-                break;
-              case 5:
-                valori.val[2] = valori.val[2] == 9 ? 0 : valori.val[2] + 1;
-                break;
-              case 6:
-                valori.val[2] = valori.val[2] == 0 ? 9 : valori.val[2] - 1;
-                break;
-              case 7:
-                if (valori.stato  == stop) {
-                  valori.val[2] = 0;
-                }
-                break;
-              case 8:
-                valori.val[7] = valori.val[7] == 3 ? 0 : valori.val[7] + 1;
-                crono.detach();
-                timer2p.detach();
-                valori.stato  = stop;
-                stateP = 1;
-                break;
-              case 9:
-                valori.val[7] = valori.val[7] == 0 ? 3 : valori.val[7] - 1;
-                crono.detach();
-                timer2p.detach();
-                valori.stato  = stop;
-                stateP = 1;
-                break;
-              case 10:
-                valori.val[8] = valori.val[8] == 3 ? 0 : valori.val[8] + 1;
-                crono.detach();
-                timer2p.detach();
-                valori.stato  = stop;
-                stateP = 1;
-                break;
-              case 11:
-                valori.val[8] = valori.val[8] == 0 ? 3 : valori.val[8] - 1;
-                crono.detach();
-                timer2p.detach();
-                valori.stato  = stop;
-                stateP = 1;
-                break;
-              case 12:
-                if (valori.stato  == stop) {
-                  valori.val[7] = 0;
-                  valori.val[8] = 0;
-                }
-                break;
-              case 13://Orologio
-                if (valori.stato  == stop && valori.mode != orologio) {
-                  valori.mode = orologio;
-                  clearTab();
-                  valori.modeImpostata  = true;
-                  timer2p.attach(0.5, duePunti);
-                }
-                break;
-              case 14://Tabellone
-                valori.mode = tabellone;
-                valori.modeImpostata  = false;
-                timer2p.detach();
-                stateP = true;
-                displayWrite();
-                break;
-              case 15:
-                if (valori.stato  == stop) {
-                  for (byte i = 0; i < 9; i++) {
-                    valori.val[i] = 0;
-                  }
-                }
-                break;
-            }
+            handleTabelloneWhitShiftPressed(i);
           }
         } else if (valori.mode == orologio) { //Modalità orologio
           if (RTC) {
@@ -665,115 +774,31 @@ void mainProcess() {
             minuti = now.minute();
             ore = now.hour();
           }
-          if (comandi.state[16] == 1) { //Shift premuto in mod Orologio
-            switch (i) {
-              case 8:
-                ore = ore >= 24 ? 0 : ore + 1;
-                impostaOra(minuti, ore);
-                break;
-              case 9:
-                ore = ore <= 0 ? 24 : ore - 1;
-                impostaOra(minuti, ore);
-                break;
-              case 10:
-                minuti = minuti >= 59 ? 0 : minuti + 1;
-                impostaOra(minuti, ore);
-                break;
-              case 11:
-                minuti = minuti <= 0 ? 59 : minuti - 1;
-                impostaOra(minuti, ore);
-                break;
-              case 14://S
-                valori.mode = tabellone;
-                Serial.println("STOP + SHIFT IN OROLOGIO");
-                stateP = true;
-                valori.modeImpostata = false;
-                // timer2p.detach();
-                // displayWrite();
-                displayPrintOnSerial();
-                break;
-            }
+          if (comandi.state[BTN_SHIFT] == 1) { //Shift premuto in mod Orologio
+            handleOrologioMode(i);
           }
         }
       } else {
-        if (millis() - time_p > 1000 ) {          // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA
+        if (millis() - time_p > 1000 && millis() - timeReflesh > 1000) {   // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA ongi secondo
           if (valori.mode == tabellone) {         // Modalità tabellone
             if (isOTAcmd && valori.stato != run) {
               enteringOtaMode();
               valori.mode = OTA;
-            } else if (comandi.state[16] == 0) {  // Shift non premuto in mod tabellone
-              switch (i) {
-                case 0:
-                  valori.val[0] = (valori.val[0] + 5) >= 199 ? 0 : valori.val[0] + 5;
-                  break;
-                case 1:
-                  valori.val[0] = (valori.val[0] - 5) <= 0 ? 199 : valori.val[0] - 5;
-                  break;
-                case 2:
-                  valori.val[1] = (valori.val[1] + 5) >= 199 ? 0 : valori.val[1] + 5;
-                  break;
-                case 3:
-                  valori.val[1] = (valori.val[1] - 5) <= 0 ? 199 : valori.val[1] - 5;
-                  break;
-                case 8:
-                  valori.val[3] = (valori.val[3] + 5) >= 99 ? 0 : valori.val[3] + 5;
-                  break;
-                case 9:
-                  valori.val[3] = (valori.val[3] - 5) <= 0 ? 99 : valori.val[3] - 5;
-                  break;
-                case 10:
-                  if (valori.stato  == stop) {
-                    if ((valori.val[4] + 5) >= 59) {
-                      valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 1;
-                    }
-                    valori.val[4] = valori.val[4] + 5 >= 59 ? 0 : valori.val[4] + 5;
-                  }
-                  break;
-                case 11:
-                  if (valori.stato  == stop) {
-                    if ((valori.val[4] - 5) <= 0) {
-                      valori.val[3] = (valori.val[3]) == 0 ? 99 : valori.val[3] - 1;
-                    }
-                    valori.val[4] = valori.val[4] - 5 <= 0 ? 59 : valori.val[4] - 5;
-                  }
-                  break;
-              }
+            } else if (comandi.state[BTN_SHIFT] == 0) {  // Shift non premuto in mod tabellone
+              handleTabelloneWhitContinuosPress(i);
             }
-          } else if (valori.mode == orologio) { //Modalità orologio
+          } else if (valori.mode == orologio) {     //Modalità orologio
             if (RTC) {
               DateTime now = Clock.now();
               minuti = now.minute();
               ore = now.hour();
             }
-            if (comandi.state[16] == 1) {       //Shift premuto in mod Orologio
-              switch (i) {
-                case 8:
-                  ore = ore + 2 >= 24 ? 0 : ore + 2;
-                  impostaOra(minuti, ore);
-                  break;
-                case 9:
-                  ore = ore - 2 <= 0 ? 24 : ore - 2;
-                  impostaOra(minuti, ore);
-                  break;
-                case 10:
-                  minuti = minuti + 5 >= 59 ? 0 : minuti + 5;
-                  impostaOra(minuti, ore);
-                  break;
-                case 11:
-                  minuti = minuti - 5  <= 0 ? 59 : minuti - 5;
-                  impostaOra(minuti, ore);
-                  break;
-                case 14://S
-                  valori.mode = tabellone;
-                  Serial.println("STOP + SHIFT IN OROLOGIO");
-                  // timer2p.detach();
-                  // displayWrite();
-                  displayPrintOnSerial();
-                  break;
-              }
+            if (comandi.state[BTN_SHIFT] == 1) {    //Shift premuto in mod Orologio
+              handleOrologioWhitContinuosPress(i);
             }
           }
-          delay(500); //Solo per l'avanzamento veloce, DA TOGLIERE mettendone uno non bloccante
+          // delay(500); //Solo per l'avanzamento veloce, DA TOGLIERE mettendone uno non bloccante
+          timeReflesh = millis();
         }
       }
     }
@@ -811,31 +836,31 @@ void setMode(Mode mode) {
 }
 
 void displayPrint() {
-  if (pt1.read() != valori.val[0]) {
-    pt1.write(valori.val[0]);
+  if (pt1.read() != valori.val[PUNTI_A]) {
+    pt1.write(valori.val[PUNTI_A]);
   }
-  if (pt2.read() != valori.val[1]) {
-    pt2.write(valori.val[1]);
+  if (pt2.read() != valori.val[PUNTI_B]) {
+    pt2.write(valori.val[PUNTI_B]);
   }
-  if (periodo.read() != valori.val[2]) {
-    periodo.write(valori.val[2]);
+  if (periodo.read() != valori.val[PERIODO]) {
+    periodo.write(valori.val[PERIODO]);
   }
-  if (c_m.read() != valori.val[3]) {
-    c_m.write(valori.val[3]);
+  if (c_m.read() != valori.val[CRONO_MIN]) {
+    c_m.write(valori.val[CRONO_MIN]);
   }
-  if (c_s.read() != valori.val[4]) {
-    c_s.write(valori.val[4]);
+  if (c_s.read() != valori.val[CRONO_SEC]) {
+    c_s.write(valori.val[CRONO_SEC]);
   }
-  if (falli1.read() != valori.val[5]) {
-    falli1.write(valori.val[5]);
+  if (falli1.read() != valori.val[FALLI_A]) {
+    falli1.write(valori.val[FALLI_A]);
   }
-  if (falli2.read() != valori.val[6]) {
-    falli2.write(valori.val[6]);
+  if (falli2.read() != valori.val[FALLI_B]) {
+    falli2.write(valori.val[FALLI_B]);
   }
 }
 
 void timeOutWrite() {
-  switch (valori.val[7]) {
+  switch (valori.val[TIMEOUT_A]) {
     case 0:
       mcp[mcpTimeout].digitalWrite(f1_1, 0);
       mcp[mcpTimeout].digitalWrite(f1_2, 0);
@@ -857,7 +882,7 @@ void timeOutWrite() {
       mcp[mcpTimeout].digitalWrite(f1_3, 1);
       break;
   }
-  switch (valori.val[8]) {
+  switch (valori.val[TIMEOUT_B]) {
     case 0:
       mcp[mcpTimeout].digitalWrite(f2_1, 0);
       mcp[mcpTimeout].digitalWrite(f2_2, 0);
@@ -886,7 +911,7 @@ void displayPrintOnSerial() {
   for (int i = 0; i < 8; i++) {
     toSendSerial += String(valori.val[i]) + ".";
   }
-  toSendSerial += String(valori.val[8]);
+  toSendSerial += String(valori.val[TIMEOUT_B]);
   Serial.println(toSendSerial);
 }
 
