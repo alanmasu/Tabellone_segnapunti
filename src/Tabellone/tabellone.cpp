@@ -100,6 +100,13 @@ bool RTC;           //Stato di configurazione RTC
 // char ssid[] = "Tabellone";
 // char pass[] = "Tabellone";
 
+//Definizione funzioni
+static void handleTabelloneMode(int button);
+static void handleTabelloneWhitShiftPressed(int button);
+static void handleTabelloneWhitContinuosPress(int button);
+static void handleOrologioMode(int button);
+static void handleOrologioWhitContinuosPress(int button);
+
 
 //Definizioni delle funzioni
 void initSerial(String &title) {
@@ -483,8 +490,24 @@ void restoreTabMode() {
   }
 }
 
+void handleTabelloneMode(int button){
+
+}
+void handleTabelloneWhitShiftPressed(int button){
+
+}
+void handleTabelloneWhitContinuosPress(int button){
+
+}
+void handleOrologioMode(int button){
+
+}
+void handleOrologioWhitContinuosPress(int button){
+
+}
+
 void mainProcess() {
-  bool isOTAcmd = comandi.state[13] && comandi.state[14] && comandi.state[15];
+  bool isOTAcmd = comandi.state[BTN_PLAY] && comandi.state[BTN_STOP] && comandi.state[BTN_RESET];
   for (byte i = 0; i < 16; i++) {
     if (comandi.state[i] == 1 ) {
       if (comandi.state[i] != comandi_p.state[i]) {
@@ -492,42 +515,42 @@ void mainProcess() {
         if (valori.mode == tabellone) {
           if (comandi.state[16] == 0) {//Shift non premuto in mod tab
             switch (i) {
-              case 0:
+              case BTN_PUNTI_A_PIU:
                 valori.val[0] = valori.val[0] == 199 ? 0 : valori.val[0] + 1;
                 break;
-              case 1:
+              case BTN_PUNTI_A_MENO:
                 valori.val[0] = valori.val[0] == 0 ? 199 : valori.val[0] - 1;
                 break;
-              case 2:
+              case BTN_PUNTI_B_PIU:
                 valori.val[1] = valori.val[1] == 199 ? 0 : valori.val[1] + 1;
                 break;
-              case 3:
+              case BTN_PUNTI_B_MENO:
                 valori.val[1] = valori.val[1] == 0 ? 199 : valori.val[1] - 1;
                 break;
-              case 4:
+              case BTN_PUNTI_R:
                 if (valori.stato  == stop) {
                   valori.val[0] = 0;
                   valori.val[1] = 0;
                 }
                 break;
-              case 5:
+              case BTN_PERIODO_PIU:
                 valori.val[2] = valori.val[2] == 9 ? 0 : valori.val[2] + 1;
                 break;
-              case 6:
+              case BTN_PERIODO_MENO:
                 valori.val[2] = valori.val[2] == 0 ? 9 : valori.val[2] - 1;
                 break;
-              case 7:
+              case BTN_PERIODO_R:
                 if (valori.stato  == stop) {
                   valori.val[2] = 0;
                 }
                 break;
-              case 8:
+              case BTN_CRONO_MIN_PIU:
                 valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 1;
                 break;
-              case 9:
+              case BTN_CRONO_MIN_MENO:
                 valori.val[3] = valori.val[3] == 0 ? 99 : valori.val[3] - 1;
                 break;
-              case 10:
+              case BTN_CRONO_SEC_PIU:
                 if (valori.stato  == stop) {
                   if (valori.val[4] == 59) {
                     valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 1;
@@ -535,7 +558,7 @@ void mainProcess() {
                   valori.val[4] = valori.val[4] == 59 ? 0 : valori.val[4] + 1;
                 }
                 break;
-              case 11:
+              case BTN_CRONO_SEC_MENO:
                 if (valori.stato  == stop) {
                   if (valori.val[4] == 0) {
                     valori.val[3] = valori.val[3] == 0 ? 99 : valori.val[3] - 1;
@@ -543,26 +566,26 @@ void mainProcess() {
                   valori.val[4] = valori.val[4] == 0 ? 59 : valori.val[4] - 1;
                 }
                 break;
-              case 12:
+              case BTN_CRONO_R:
                 if (valori.stato  == stop) {
                   valori.val[3] = 0;
                   valori.val[4] = 0;
                 }
                 break;
-              case 13://P
+              case BTN_PLAY://P
                 if (valori.val[3] != 0 || valori.val[4] != 0) {
                   crono.attach(1, tik);
                   timer2p.attach(0.5, duePunti);
                   valori.stato = run;
                 }
                 break;
-              case 14://S
+              case BTN_STOP://S
                 crono.detach();
                 timer2p.detach();
                 stateP = true;
                 valori.stato = stop;
                 break;
-              case 15:
+              case BTN_RESET:
                 if (valori.stato == stop) {
                   for (byte i = 0; i < 9; i++) {
                     valori.val[i] = 0;
@@ -572,70 +595,70 @@ void mainProcess() {
             }
           } else { //Shift Premuto in mod. tab
             switch (i) {
-              case 0: //Falli 1
+              case BTN_PUNTI_A_PIU: //Falli 1
                 valori.val[5] = valori.val[5] == 5 ? 0 : valori.val[5] + 1;
                 break;
-              case 1:
+              case BTN_PUNTI_A_MENO:
                 valori.val[5] = valori.val[5] == 0 ? 5 : valori.val[5] - 1;
                 break;
-              case 2: //Falli 2
+              case BTN_PUNTI_B_PIU: //Falli 2
                 valori.val[6] = valori.val[6] == 5 ? 0 : valori.val[6] + 1;
                 break;
-              case 3:
+              case BTN_PUNTI_B_MENO:
                 valori.val[6] = valori.val[6] == 0 ? 5 : valori.val[6] - 1;
                 break;
-              case 4: //Falli reset
+              case BTN_PUNTI_R: //Falli reset
                 if (valori.stato  == stop) {
                   valori.val[5] = 0;
                   valori.val[6] = 0;
                 }
                 break;
-              case 5:
+              case BTN_PERIODO_PIU:
                 valori.val[2] = valori.val[2] == 9 ? 0 : valori.val[2] + 1;
                 break;
-              case 6:
+              case BTN_PERIODO_MENO:
                 valori.val[2] = valori.val[2] == 0 ? 9 : valori.val[2] - 1;
                 break;
-              case 7:
+              case BTN_PERIODO_R:
                 if (valori.stato  == stop) {
                   valori.val[2] = 0;
                 }
                 break;
-              case 8:
+              case BTN_CRONO_MIN_PIU:
                 valori.val[7] = valori.val[7] == 3 ? 0 : valori.val[7] + 1;
                 crono.detach();
                 timer2p.detach();
                 valori.stato  = stop;
                 stateP = 1;
                 break;
-              case 9:
+              case BTN_CRONO_MIN_MENO:
                 valori.val[7] = valori.val[7] == 0 ? 3 : valori.val[7] - 1;
                 crono.detach();
                 timer2p.detach();
                 valori.stato  = stop;
                 stateP = 1;
                 break;
-              case 10:
+              case BTN_CRONO_SEC_PIU:
                 valori.val[8] = valori.val[8] == 3 ? 0 : valori.val[8] + 1;
                 crono.detach();
                 timer2p.detach();
                 valori.stato  = stop;
                 stateP = 1;
                 break;
-              case 11:
+              case BTN_CRONO_SEC_MENO:
                 valori.val[8] = valori.val[8] == 0 ? 3 : valori.val[8] - 1;
                 crono.detach();
                 timer2p.detach();
                 valori.stato  = stop;
                 stateP = 1;
                 break;
-              case 12:
+              case BTN_CRONO_R:
                 if (valori.stato  == stop) {
                   valori.val[7] = 0;
                   valori.val[8] = 0;
                 }
                 break;
-              case 13://Orologio
+              case BTN_PLAY://Orologio
                 if (valori.stato  == stop && valori.mode != orologio) {
                   valori.mode = orologio;
                   clearTab();
@@ -643,14 +666,14 @@ void mainProcess() {
                   timer2p.attach(0.5, duePunti);
                 }
                 break;
-              case 14://Tabellone
+              case BTN_STOP://Tabellone
                 valori.mode = tabellone;
                 valori.modeImpostata  = false;
                 timer2p.detach();
                 stateP = true;
                 displayWrite();
                 break;
-              case 15:
+              case BTN_RESET:
                 if (valori.stato  == stop) {
                   for (byte i = 0; i < 9; i++) {
                     valori.val[i] = 0;
@@ -665,25 +688,25 @@ void mainProcess() {
             minuti = now.minute();
             ore = now.hour();
           }
-          if (comandi.state[16] == 1) { //Shift premuto in mod Orologio
+          if (comandi.state[BTN_SHIFT] == 1) { //Shift premuto in mod Orologio
             switch (i) {
-              case 8:
+              case BTN_CRONO_MIN_PIU:
                 ore = ore >= 24 ? 0 : ore + 1;
                 impostaOra(minuti, ore);
                 break;
-              case 9:
+              case BTN_CRONO_MIN_MENO:
                 ore = ore <= 0 ? 24 : ore - 1;
                 impostaOra(minuti, ore);
                 break;
-              case 10:
+              case BTN_CRONO_SEC_PIU:
                 minuti = minuti >= 59 ? 0 : minuti + 1;
                 impostaOra(minuti, ore);
                 break;
-              case 11:
+              case BTN_CRONO_SEC_MENO:
                 minuti = minuti <= 0 ? 59 : minuti - 1;
                 impostaOra(minuti, ore);
                 break;
-              case 14://S
+              case BTN_STOP://S
                 valori.mode = tabellone;
                 Serial.println("STOP + SHIFT IN OROLOGIO");
                 stateP = true;
@@ -703,25 +726,25 @@ void mainProcess() {
               valori.mode = OTA;
             } else if (comandi.state[16] == 0) {  // Shift non premuto in mod tabellone
               switch (i) {
-                case 0:
+                case BTN_PUNTI_A_PIU:
                   valori.val[0] = (valori.val[0] + 5) >= 199 ? 0 : valori.val[0] + 5;
                   break;
-                case 1:
+                case BTN_PUNTI_A_MENO:
                   valori.val[0] = (valori.val[0] - 5) <= 0 ? 199 : valori.val[0] - 5;
                   break;
-                case 2:
+                case BTN_PUNTI_B_PIU:
                   valori.val[1] = (valori.val[1] + 5) >= 199 ? 0 : valori.val[1] + 5;
                   break;
-                case 3:
+                case BTN_PUNTI_B_MENO:
                   valori.val[1] = (valori.val[1] - 5) <= 0 ? 199 : valori.val[1] - 5;
                   break;
-                case 8:
+                case BTN_CRONO_MIN_PIU:
                   valori.val[3] = (valori.val[3] + 5) >= 99 ? 0 : valori.val[3] + 5;
                   break;
-                case 9:
+                case BTN_CRONO_MIN_MENO:
                   valori.val[3] = (valori.val[3] - 5) <= 0 ? 99 : valori.val[3] - 5;
                   break;
-                case 10:
+                case BTN_CRONO_SEC_PIU:
                   if (valori.stato  == stop) {
                     if ((valori.val[4] + 5) >= 59) {
                       valori.val[3] = valori.val[3] == 99 ? 0 : valori.val[3] + 1;
@@ -729,7 +752,7 @@ void mainProcess() {
                     valori.val[4] = valori.val[4] + 5 >= 59 ? 0 : valori.val[4] + 5;
                   }
                   break;
-                case 11:
+                case BTN_CRONO_SEC_MENO:
                   if (valori.stato  == stop) {
                     if ((valori.val[4] - 5) <= 0) {
                       valori.val[3] = (valori.val[3]) == 0 ? 99 : valori.val[3] - 1;
@@ -745,25 +768,25 @@ void mainProcess() {
               minuti = now.minute();
               ore = now.hour();
             }
-            if (comandi.state[16] == 1) {       //Shift premuto in mod Orologio
+            if (comandi.state[BTN_SHIFT] == 1) {       //Shift premuto in mod Orologio
               switch (i) {
-                case 8:
+                case BTN_CRONO_MIN_PIU:
                   ore = ore + 2 >= 24 ? 0 : ore + 2;
                   impostaOra(minuti, ore);
                   break;
-                case 9:
+                case BTN_CRONO_MIN_MENO:
                   ore = ore - 2 <= 0 ? 24 : ore - 2;
                   impostaOra(minuti, ore);
                   break;
-                case 10:
+                case BTN_CRONO_SEC_PIU:
                   minuti = minuti + 5 >= 59 ? 0 : minuti + 5;
                   impostaOra(minuti, ore);
                   break;
-                case 11:
+                case BTN_CRONO_SEC_MENO:
                   minuti = minuti - 5  <= 0 ? 59 : minuti - 5;
                   impostaOra(minuti, ore);
                   break;
-                case 14://S
+                case BTN_STOP://S
                   valori.mode = tabellone;
                   Serial.println("STOP + SHIFT IN OROLOGIO");
                   // timer2p.detach();
