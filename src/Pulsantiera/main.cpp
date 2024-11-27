@@ -3,9 +3,6 @@
               (pulsantiera)
 
           Creato il: 09/12/2021
-      Modificato il: 09/12/2021
-
-      Versione 6.21_p
 
       Hardware:
        - SUO MAC:           ac:67:b2:3f:54:9c
@@ -16,7 +13,6 @@
        - Prima prova con file di implementazione        [WORKING] [DONE]
           - Capire perche la peer non va nelle          
             funzioni                                    [FIXED]
-       - Accoppiata con la versione 5.21 del tabellone  [VERSION COMPATIBILITY]
 
       TO DO:
        - MANCA L'AGGIORNAMENTO DEL LED DI CONNESSIONE   [DONE]
@@ -29,8 +25,9 @@
        - WDT                                            [WORKING]
           - Implementare l'inizializzazione             [DONE]
        - OTA                                            [TO DO]
-          - Implementare funzioni di connessione        [TO DO]
-          - Implementatr funzione di inizializzazione   [TO DO]
+          - Implementare l'OTA                          [WORKING IN PROGRESS]
+          - Spostare il codice file                     [TO DO]
+      
        - Controllare le letture dei pulsanti            [TO TRY] [HW]
        - Sistemare gesitone mod. seriale                [WORKING]
 
@@ -39,14 +36,15 @@
 #include <Arduino.h>
 #include <pulsantiera.h>
 #include <esp_now.h>
+#include <common.h>
 
-esp_now_peer_info_t peerInfo;
+
 
 void setup() {
   // Init Serial Monitor
   String title = __FILE__;
   initSerial(title);
-  initESPNOW(&peerInfo);  
+  initESPNOW();  
   initMCPs();
   initPins();
   initWDT();
@@ -60,11 +58,26 @@ void loop() {
   if (!serialMode()) {            //Se la modalità seriale non è attiva
     readButtons();                //Leggi i pulsanti hardwere
   }
-  sendViaNow();                   //Invii i dati letti al Tabellone
-  if (checkNowConnection()) {     //Se ti sono arrivati dati da poco
-    evaluateData();               //Intrepreti i dati ricevuti
-  } else {                        //Altrimenti
-    connectionErrorHandle();      //Gestisci l'errore di connessione
+  if(getMode() != OTA){           //Se il tabellone non e' in modalita' OTA
+    sendViaNow();                 //Invii i dati letti al Tabellone
+    if (checkNowConnection()) {   //Se ti sono arrivati dati da poco
+      evaluateData();             //Intrepreti i dati ricevuti
+    } else {                      //Altrimenti
+      connectionErrorHandle();    //Gestisci l'errore di connessione
+    }
+    delay(150);
+  }else{                          //Se il tabellone e' in modalita' OTA
+    //Serial.println("OTA MODE"); //FOR DEBUG
+    if(!getWifiInitialized()){    //Se il WiFi non e' inizializzato
+      initWiFi();                 //Inizializza il WiFi
+      initOTA();                  //Inizializza l'OTA
+    }
+    if(checkWiFiConnection()){    //Se il WiFi e' connesso
+      OTALoop();                  //Gestisci la connessione OTA
+    }else{                        //Altrimenti
+      reconnectWiFi();            //Riconnetti il WiFi
+    }
+    evaluateData();               //Se sono stati ricevuti dati da ESP-NOW intrepretali
+    handleWiFiLed();
   }
-  delay(150);
 }
