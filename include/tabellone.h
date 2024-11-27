@@ -28,6 +28,18 @@
 #define BTN_RESET           15
 #define BTN_SHIFT           16
 
+//Definizioni dei valori interni alla struttura
+#define PUNTI_A 0
+#define PUNTI_B 1
+#define PERIODO 2
+#define CRONO_MIN 3
+#define CRONO_SEC 4
+#define FALLI_A 5
+#define FALLI_B 6
+#define TIMEOUT_A 7
+#define TIMEOUT_B 8
+
+
 //Testate funzioni
 //Ininizializzazioni
 void initSerial(String &title);
