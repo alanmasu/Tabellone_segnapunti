@@ -102,6 +102,10 @@ byte minuti;        //Minuti
 byte ore;           //Ore
 bool RTC;           //Stato di configurazione RTC
 
+//Valori finali cronometro
+uint8_t finalMinutesValue;
+uint8_t finalSecondsVales;
+
 // //WiFi
 // char ssid[] = "Tabellone";
 // char pass[] = "Tabellone";
@@ -466,6 +470,9 @@ void tik() {
       } else {
         valori.val[CRONO_SEC] ++;
       }
+      if(valori.val[CRONO_MIN] == finalMinutesValue && valori.val[CRONO_SEC] == finalSecondsVales){
+        finishTime();
+      }
       break;
     case timer:
       if (valori.val[CRONO_SEC] == 0) {
@@ -586,6 +593,10 @@ void handleTabelloneMode(int button){
         crono.attach(1, tik);
         timer2p.attach(0.5, duePunti);
         valori.stato = run;
+        if(valori.timerType == cronometro){
+          finalMinutesValue = valori.val[CRONO_MIN];
+          finalSecondsVales = valori.val[CRONO_SEC];
+        }
       }
       break;
     case BTN_STOP://S
@@ -991,12 +1002,12 @@ void displayPrintOnSerial() {
               break;
           }
         }
-        toSendSerial += String(valori.val[8]);
+        toSendSerial += String(valori.val[TIMEOUT_B]);
       }else if (1000 < dt && dt <= 2000){
         for (int i = 0; i < 8; i++) {
           toSendSerial += String(valori.val[i]) + ".";
         }
-        toSendSerial += String(valori.val[8]);
+        toSendSerial += String(valori.val[TIMEOUT_B]);
       }else if(2000 < dt ){
         changeModeInstant = millis();
         ++blynkCounter;
