@@ -84,6 +84,7 @@ unsigned long timeReflesh = 0;  //Tempo dall'ultimo reflesh dei dati in modalita
 uint32_t changeModeInstant = 0; //Istante di cambio modalità
 bool changedMode = false;       //Cambio modalità in corso
 uint8_t blynkCounter;           //Contatore per il blink delle scritte
+bool firstChangeMode = false;   //Flag per il rilascio del pulsante di cambio modalità
 
 //ESP-NOW
 #ifndef PULSANTEIRA_MAC_ADDRESS
@@ -811,6 +812,7 @@ void mainProcess() {
               handleTabelloneWhitContinuosPress(i);
             } else if (comandi.state[BTN_SHIFT] == 1){    // Shift premuto in mod tabellone
               if(comandi.state[BTN_CRONO_R] && valori.stato == stop){ //Cambio modalità timer/cronometro
+                firstChangeMode = true;
                 changedMode = true;
                 changeModeInstant = millis();
                 if(valori.timerType == timer){
@@ -818,6 +820,8 @@ void mainProcess() {
                 }else if (valori.timerType == cronometro){
                   valori.timerType = timer;
                 }
+              }else{
+                firstChangeMode = false;
               }
             }
           } else if (valori.mode == orologio) {     //Modalità orologio
@@ -980,9 +984,9 @@ void displayPrintOnSerial() {
         toSendSerial += String(valori.val[8]);
       }else{
         changeModeInstant = millis();
+        ++blynkCounter;
       }
       Serial.println(toSendSerial);
-      ++blynkCounter;
     }else{
       changedMode = false;
     }
