@@ -118,6 +118,7 @@ static void handleOrologioWhitContinuosPress(int button);
 void initSerial(String &title) {
   Serial.begin(115200); // COM5
   Serial.printf("Git commit hash: %s, File: %s\n", __GIT_COMMIT__, title.c_str());
+  Serial2.begin(9600);
 }
 
 bool initEEPROM() {
@@ -357,6 +358,11 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&comandi, incomingData, sizeof(comandi));
   lastMessageFromNOW = millis();
+  // for(int i = 0; i < 16; ++i){
+  //   Serial2.print(comandi.state[i]);
+  //   Serial2.print(".");
+  // } 
+  // Serial2.println(comandi.state[16]);
 }
 
 void sendViaNow() {
@@ -812,6 +818,7 @@ void mainProcess() {
               handleTabelloneWhitContinuosPress(i);
             } else if (comandi.state[BTN_SHIFT] == 1){    // Shift premuto in mod tabellone
               if(comandi.state[BTN_CRONO_R] && valori.stato == stop){ //Cambio modalità timer/cronometro
+                Serial2.println("Cambio modalità");
                 firstChangeMode = true;
                 changedMode = true;
                 changeModeInstant = millis();
@@ -822,6 +829,7 @@ void mainProcess() {
                 }
               }else{
                 firstChangeMode = false;
+                Serial2.println("Ripristinato");
               }
             }
           } else if (valori.mode == orologio) {     //Modalità orologio
