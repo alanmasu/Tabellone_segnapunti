@@ -6,11 +6,13 @@
 //typedef e struct
 typedef enum {tabellone, orologio, OTA} Mode;
 typedef enum {stop, run} Stato;
+typedef enum {cronometro, timer} TimerType;
 
 typedef struct Valori {
   byte val[9];
   Stato stato;
   Mode mode;
+  TimerType timerType;
   bool modeImpostata;
   Valori();
   Valori& operator=(const Valori &val2);
