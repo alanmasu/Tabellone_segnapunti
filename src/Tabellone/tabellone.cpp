@@ -315,15 +315,22 @@ bool initESP_NOW() {
   return true;
 }
 
+void ISR_powerFail(){
+  xTaskResumeFromISR(powerFail_t);
+}
+
 void initPowerFail() {
-  pinMode(15, INPUT);
+  pinMode(POWERFAIL_SENSE_PIN, INPUT);
   xTaskCreate(
     powerFailTaskRoutine,   /* Task function. */
     "POWERFAIL_T",          /* name of task. ONLY FOR HUMANS*/
     10000,                  /* Stack size of task */
     NULL,                   /* parameter of the task */
-    1,                      /* priority of the task */
-    &powerFail_t);          /* Task handle to keep track of created task */
+    2,                      /* priority of the task */
+    &powerFail_t            /* Task handle to keep track of created task */
+  );
+  attachInterrupt(digitalPinToInterrupt(POWERFAIL_SENSE_PIN), ISR_powerFail, FALLING);
+  // attachInterrupt(digitalPinToInterrupt(POWERFAIL_SENSE_PIN), ISR_PowerFail, FALLING);
 }
 
 void initRTC() {
@@ -368,36 +375,40 @@ bool checkNowConnection() {
 
 //PowerFail
 void powerFailTaskRoutine(void * pvParameters) {
+  uint32_t time_f = 0;
   Serial.println("POWERFAIL DETECTOR IS RUNNING");
+  vTaskSuspend(NULL);
   while (1) {
-    powerFail_state = digitalRead(15);
-    if (!powerFail_state && powerFail_state0 != powerFail_state) {
-      time_s = millis();
-      Serial.println("POWERFAIL DETECTOR WAS TRIGGERED");
-      vTaskSuspend(loopTaskHandle);
-      powerFail_event = true;
-      Serial.println("STOPPING CONNECTIONS");
-      esp_wifi_stop();
-      esp_bluedroid_disable();
-      esp_bt_controller_disable();
-      //powerFailReset();
-      digitalWrite(2, 0);
-      Serial.println("SAVING DATA");
-      if (EEPROMSave()) {
-        Serial.println("SAVING SUCCESFUL");
-        Serial.println("TIME FROM POWERFAIL TRIGGERING: " + String(millis() - time_s));
-      }
-    } else if (powerFail_state && powerFail_state0 != powerFail_state) {
-      if (powerFail_event) {
-        Serial.println("POWERFAIL RETURNED");
-        WiFi.mode(WIFI_OFF);
-        WiFi.mode(WIFI_STA);
-        vTaskResume(loopTaskHandle);
-        powerFail_event = false;
-      }
+    time_s = millis();
+    vTaskSuspend(loopTaskHandle);
+    powerFail_event = true;
+    esp_wifi_stop();
+    esp_bluedroid_disable();
+    esp_bt_controller_disable();
+    //powerFailReset();
+    bool saved = EEPROMSave();
+    digitalWrite(CONNECTION_LED, 0);
+    time_f = millis();
+    Serial.println("POWERFAIL DETECTOR WAS TRIGGERED");
+    Serial.println("STOPPING CONNECTIONS");
+    Serial.println("SAVING DATA");
+    if(saved) {
+      Serial.println("SAVING SUCCESFUL");
+      Serial.println("TIME FROM POWERFAIL TRIGGERING: " + String(time_f - time_s));
+    }else{
+      Serial.println("ERROR DURING SAVING PROCEDURE");
+      Serial.println("TIME FROM POWERFAIL TRIGGERING: " + String(time_f - time_s));
     }
-    powerFail_state0 = powerFail_state;
-    vTaskDelay(10);
+    while (!digitalRead(POWERFAIL_SENSE_PIN)) {
+      yield();    
+    }
+    Serial.println("POWERFAIL RETURNED");
+    WiFi.mode(WIFI_OFF);
+    WiFi.mode(WIFI_AP_STA);
+    initESP_NOW();
+    powerFail_event = false;
+    vTaskResume(loopTaskHandle);
+    vTaskSuspend(NULL);
   }
   vTaskDelete(powerFail_t);
 }

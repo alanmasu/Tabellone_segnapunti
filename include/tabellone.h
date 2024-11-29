@@ -7,6 +7,7 @@
 
 //DEFINIZIONE COSTANTI
 #define CONNECTION_LED 2
+#define POWERFAIL_SENSE_PIN 15
 #define ESP_NOW_MAX_TIMEOUT 3 * 1000UL //3 secondi
 
 //Definizioni dei pulsanti
