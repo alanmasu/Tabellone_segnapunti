@@ -126,7 +126,6 @@ static void handleOrologioWhitContinuosPress(int button);
 void initSerial(String &title) {
   Serial.begin(115200); // COM5
   Serial.printf("Git commit hash: %s, File: %s\n", __GIT_COMMIT__, title.c_str());
-  Serial2.begin(9600);
 }
 
 bool initEEPROM() {
@@ -366,12 +365,6 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&comandi, incomingData, sizeof(comandi));
   lastMessageFromNOW = millis();
-  Serial2.println(comandi.state[12]);
-  // for(int i = 0; i < 16; ++i){
-  //   Serial2.print(comandi.state[i]);
-  //   Serial2.print(".");
-  // } 
-  // Serial2.println(comandi.state[16]);
 }
 
 void sendViaNow() {
@@ -533,7 +526,7 @@ void restoreTabMode() {
   }
 }
 
-void handleTabelloneMode(int button){
+static void handleTabelloneMode(int button){
   switch (button) {
     case BTN_PUNTI_A_PIU:
       valori.val[PUNTI_A] = valori.val[PUNTI_A] == 199 ? 0 : valori.val[PUNTI_A] + 1;
@@ -620,7 +613,7 @@ void handleTabelloneMode(int button){
       break;
   }
 }
-void handleTabelloneWhitShiftPressed(int button){
+static void handleTabelloneWhitShiftPressed(int button){
   switch (button) {
     case BTN_PUNTI_A_PIU: //Falli 1
       valori.val[FALLI_A] = valori.val[FALLI_A] == 5 ? 0 : valori.val[FALLI_A] + 1;
@@ -709,7 +702,7 @@ void handleTabelloneWhitShiftPressed(int button){
       break;
   }
 }
-void handleTabelloneWhitContinuosPress(int button){
+static void handleTabelloneWhitContinuosPress(int button){
   switch (button) {
     case BTN_PUNTI_A_PIU:
       valori.val[PUNTI_A] = (valori.val[PUNTI_A] + 5) >= 199 ? 0 : valori.val[PUNTI_A] + 5;
@@ -747,7 +740,29 @@ void handleTabelloneWhitContinuosPress(int button){
       break;
   }
 }
-void handleOrologioMode(int button){
+
+static void handleTabelloneWithContinuosPressShifted(uint8_t i){
+  if (comandi.state[BTN_CRONO_R]){           //Se è premuto il tasto di cambio modalita' (SHIFT + RESET CRONO)
+    if(valori.stato == stop && firstChangeMode == false){
+      firstChangeMode = true;
+      changedMode = true;
+      changedModeSerial = true;
+      blynkCounter = 0;
+      blynkCounterSerial = 0;
+      changeModeInstant = millis();
+      changeModeInstantSerial = millis();
+      if(valori.timerType == timer){
+        valori.timerType = cronometro;
+      }else if (valori.timerType == cronometro){
+        valori.timerType = timer;
+      }
+    }
+  }else{
+    firstChangeMode = false;
+  }
+}
+
+static void handleOrologioMode(int button){
   switch (button) {
     case BTN_CRONO_MIN_PIU:
       ore = ore >= 24 ? 0 : ore + 1;
@@ -776,7 +791,7 @@ void handleOrologioMode(int button){
       break;
   }
 }
-void handleOrologioWhitContinuosPress(int button){
+static void handleOrologioWhitContinuosPress(int button){
   switch (button) {
     case BTN_CRONO_MIN_PIU:
       ore = ore + 2 >= 24 ? 0 : ore + 2;
@@ -826,7 +841,7 @@ void mainProcess() {
             handleOrologioMode(i);
           }
         }
-      } else {
+      } else {  //Avanzamento veloce
         if (millis() - time_p > 1000 && millis() - timeReflesh > 1000) {   // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA ongi secondo
           if (valori.mode == tabellone) {           // Modalità tabellone
             if (isOTAcmd && valori.stato != run) {
@@ -835,26 +850,7 @@ void mainProcess() {
             } else if (comandi.state[BTN_SHIFT] == 0) {   // Shift non premuto in mod tabellone
               handleTabelloneWhitContinuosPress(i);
             } else if (comandi.state[BTN_SHIFT] == 1){    // Shift premuto in mod tabellone
-               if (comandi.state[BTN_CRONO_R]){         //Se è premuto il tasto di cambio modalita' (SHIFT + RESET CRONO)
-                if(valori.stato == stop && firstChangeMode == false){
-                  Serial2.println("Cambio modalità");
-                  firstChangeMode = true;
-                  changedMode = true;
-                  changedModeSerial = true;
-                  blynkCounter = 0;
-                  blynkCounterSerial = 0;
-                  changeModeInstant = millis();
-                  changeModeInstantSerial = millis();
-                  if(valori.timerType == timer){
-                    valori.timerType = cronometro;
-                  }else if (valori.timerType == cronometro){
-                    valori.timerType = timer;
-                  }
-                }
-              }else{
-                firstChangeMode = false;
-                Serial2.println("Ripristinato");
-              }
+              handleTabelloneWithContinuosPressShifted(i);
             }
           } else if (valori.mode == orologio) {     //Modalità orologio
             if (RTC) {
@@ -872,9 +868,8 @@ void mainProcess() {
       }
     }
   }
-  if (!comandi.state[12] && firstChangeMode == true){
+  if (!comandi.state[BTN_CRONO_R] && firstChangeMode == true){
     firstChangeMode = false;
-    Serial2.println("Ripristinato");
   }
   for (byte i = 0; i < 17; i++) {
     comandi_p.state[i] = comandi.state[i];
