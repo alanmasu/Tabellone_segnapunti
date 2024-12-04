@@ -82,9 +82,13 @@ unsigned long time_p;           //Tempo dalla pressione del tasto
 unsigned long timeReflesh = 0;  //Tempo dall'ultimo reflesh dei dati in modalita' veloce
 
 uint32_t changeModeInstant = 0; //Istante di cambio modalità
+uint32_t changeModeInstantSerial = 0; //Istante di cambio modalità
 bool changedMode = false;       //Cambio modalità in corso
+bool changedModeSerial = false;       //Cambio modalità in corso
 uint8_t blynkCounter;           //Contatore per il blink delle scritte
+uint8_t blynkCounterSerial;           //Contatore per il blink delle scritte
 bool firstChangeMode = false;   //Flag per il rilascio del pulsante di cambio modalità
+bool toUpdateStringsOnDisplay = true;
 
 //ESP-NOW
 #ifndef PULSANTEIRA_MAC_ADDRESS
@@ -520,12 +524,12 @@ void readSerial(String & str) {
 }
 
 void restoreTabMode() {
-  if (valori.modeImpostata  == false && valori.mode == orologio) {
+  if (valori.modeImpostata == false && valori.mode == orologio) {
     valori.mode = tabellone;
-    stateP = HIGH;
     timer2p.detach();
+    stateP = HIGH;
     displayWrite();
-    delay(25);
+    // delay(25);
   }
 }
 
@@ -836,8 +840,11 @@ void mainProcess() {
                   Serial2.println("Cambio modalità");
                   firstChangeMode = true;
                   changedMode = true;
-                  changeModeInstant = millis();
+                  changedModeSerial = true;
                   blynkCounter = 0;
+                  blynkCounterSerial = 0;
+                  changeModeInstant = millis();
+                  changeModeInstantSerial = millis();
                   if(valori.timerType == timer){
                     valori.timerType = cronometro;
                   }else if (valori.timerType == cronometro){
@@ -901,12 +908,20 @@ void setMode(Mode mode) {
   Serial.printf("Setted mode to %d\n", valori.mode);
 }
 
-void displayPrint() {
-  if (pt1.read() != valori.val[PUNTI_A]) {
-    pt1.write(valori.val[PUNTI_A]);
-  }
-  if (pt2.read() != valori.val[PUNTI_B]) {
-    pt2.write(valori.val[PUNTI_B]);
+void updateDisplays(bool whitValues = true, String val1 = "", String val2 = "") {
+  if(whitValues){
+    if (pt1.read() != valori.val[PUNTI_A]) {
+      pt1.write(valori.val[PUNTI_A]);
+    }
+    if (pt2.read() != valori.val[PUNTI_B]) {
+      pt2.write(valori.val[PUNTI_B]);
+    }
+  }else{
+    if(toUpdateStringsOnDisplay){
+      pt1.print(val1);
+      pt2.print(val2);
+      toUpdateStringsOnDisplay = false;
+    }
   }
   if (periodo.read() != valori.val[PERIODO]) {
     periodo.write(valori.val[PERIODO]);
@@ -922,6 +937,37 @@ void displayPrint() {
   }
   if (falli2.read() != valori.val[FALLI_B]) {
     falli2.write(valori.val[FALLI_B]);
+  }
+}
+
+void blinkTimerTypeOnDisplay(){
+  uint32_t dt = millis() - changeModeInstant;
+  if(blynkCounter < 10){
+    if (dt <= 1000){
+      if (valori.timerType == timer){
+        updateDisplays(false, "ti", "ME");
+      }else if(valori.timerType == cronometro){
+        updateDisplays(false, "cR", "oN");
+      }
+    }else if( 1000 < dt && dt <= 2000){
+      updateDisplays();
+    }else if (2000 < dt ){
+      changeModeInstant = millis();
+      toUpdateStringsOnDisplay = true;
+      ++blynkCounter;
+    }
+  }else{
+    changedMode = false;
+    blynkCounter = 0;
+    toUpdateStringsOnDisplay = true;
+  }
+}
+
+void displayPrint() {
+  if(!changedMode){
+    updateDisplays();
+  }else{
+    blinkTimerTypeOnDisplay();
   }
 }
 
@@ -974,15 +1020,14 @@ void timeOutWrite() {
 
 void displayPrintOnSerial() { 
   String toSendSerial = "";
-  if(!changedMode){ //Se non è cambiata la modalità
+  if(!changedModeSerial){ //Se non è cambiata la modalità
     for (int i = 0; i < 8; i++) {
       toSendSerial += String(valori.val[i]) + ".";
     }
     toSendSerial += String(valori.val[TIMEOUT_B]);
-    blynkCounter = 0;
     Serial.println(toSendSerial);
   }else{            //Se è cambiata la modalità
-    uint32_t dt = millis() - changeModeInstant;
+    uint32_t dt = millis() - changeModeInstantSerial;
     //Calcolo la modalità 
     String mode[2];
     if(valori.timerType == timer){
@@ -992,7 +1037,7 @@ void displayPrintOnSerial() {
       mode[0] = "cR";
       mode[1] = "oN";
     }
-    if(blynkCounter < 10){
+    if(blynkCounterSerial < 10){
       if (dt <= 1000){                 
         for (int i = 0; i < 8; i++) {
           switch (i){
@@ -1012,15 +1057,16 @@ void displayPrintOnSerial() {
         }
         toSendSerial += String(valori.val[TIMEOUT_B]);
       }else if(2000 < dt ){
-        changeModeInstant = millis();
-        ++blynkCounter;
-        Serial.println(blynkCounter);
+        changeModeInstantSerial = millis();
+        ++blynkCounterSerial;
+        Serial.println(blynkCounterSerial);
       }
       if(toSendSerial != ""){
         Serial.println(toSendSerial);
       }
     }else{
-      changedMode = false;
+      changedModeSerial = false;
+      blynkCounterSerial = 0;
     }
   }
 }
