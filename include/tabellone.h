@@ -5,9 +5,14 @@
 #include <common.h>
 
 
+//Hardware definitions for the Expansion Board Rev. 1.0 (https://github.com/alanmasu/ExpansionBoardTabellone)
+#define SIRENA_PIN 27
+#define RELAY2_PIN 32
+#define GPIO_PIN   33
+// #define POWERFAIL_SENSE_PIN 4
+
 //DEFINIZIONE COSTANTI
 #define CONNECTION_LED 2
-#define SIRENA_PIN 27
 #define POWERFAIL_SENSE_PIN 15
 #define ESP_NOW_MAX_TIMEOUT 3 * 1000UL //3 secondi
 
