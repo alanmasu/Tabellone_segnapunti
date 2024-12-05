@@ -60,6 +60,7 @@ Adafruit_MCP23017 mcp[6]; //Moduli MCP23017
 //Timer
 Ticker crono;
 bool cronoResettato = true;
+bool timeFinished = false;
 
 //Power Fail
 long time_s = 0;                          //Cronometro per la routine di salvatggio (Only for humans)
@@ -592,14 +593,22 @@ void handleTabelloneMode(int button){
       break;
     case BTN_PLAY://P
       if (valori.val[CRONO_MIN] != 0 || valori.val[CRONO_SEC] != 0 || valori.timerType == cronometro) {
-        if(valori.timerType == cronometro && cronoResettato && valori.stato != run){
-          if(valori.val[CRONO_SEC] || valori.val[CRONO_MIN]){  //Se il cronometro non segna 0:00 salva i valori finali
-            finalMinutesValue = valori.val[CRONO_MIN];
-            finalSecondsValue = valori.val[CRONO_SEC];
+        if(valori.timerType == cronometro && valori.stato != run){
+          if(cronoResettato){
+            if(valori.val[CRONO_SEC] || valori.val[CRONO_MIN]){  //Se il cronometro non segna 0:00 salva i valori finali
+              finalMinutesValue = valori.val[CRONO_MIN];
+              finalSecondsValue = valori.val[CRONO_SEC];
+            }
+            valori.val[CRONO_MIN] = 0;
+            valori.val[CRONO_SEC] = 0;
+            cronoResettato = false;
+            timeFinished = false;
+          }else if (timeFinished){
+            valori.val[CRONO_MIN] = 0;
+            valori.val[CRONO_SEC] = 0;
+            cronoResettato = false;
+            timeFinished = false;
           }
-          valori.val[CRONO_MIN] = 0;
-          valori.val[CRONO_SEC] = 0;
-          cronoResettato = false;
         }
         crono.attach(1, tik);
         timer2p.attach(0.5, duePunti);
@@ -1105,6 +1114,7 @@ void duePuntiWrite() {
 void finishTime() {
   //All'evento tempo finito esegui:
   stateP = true;
+  timeFinished = true;
   crono.detach();
   timer2p.detach();
   valori.stato  = stop;
