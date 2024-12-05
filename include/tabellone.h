@@ -7,6 +7,7 @@
 
 //DEFINIZIONE COSTANTI
 #define CONNECTION_LED 2
+#define SIRENA_PIN 27
 #define POWERFAIL_SENSE_PIN 15
 #define ESP_NOW_MAX_TIMEOUT 3 * 1000UL //3 secondi
 
@@ -62,6 +63,9 @@ void displayWrite();
 bool initESP_NOW();
 void initPowerFail();
 void initRTC();
+inline void initSirena(){
+    pinMode(SIRENA_PIN, OUTPUT);
+}
 
 //ESP-NOW
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
@@ -95,5 +99,6 @@ void OTAPrint();
 void OTAPrintOnSerial();
 void duePuntiWrite();
 void finishTime();
+void handleSirena();
 
 #endif
