@@ -53,6 +53,7 @@ void setup() {
     dt = millis() - time_l;
   }
   Serial.printf("Time to restore data: %d ms\n", dt);
+  initSirena();
   initMCP();
   initDigits();
   initDisplays();
@@ -99,6 +100,7 @@ void loop() {
       displayPrint();                                 //Scrivi i punteggi sui display
       displayPrintOnSerial();                         //Scrivi i punteggi sui display seriali (tool Visual Basic)
       timeOutWrite();                                 //Scrivi i timeout
+      handleSirena();                                 //Gestisci la sirena
       break;
     case orologio:                                  //Modalita' Orologio
       oraPrint();                                     //Scrivi l'ora sui display

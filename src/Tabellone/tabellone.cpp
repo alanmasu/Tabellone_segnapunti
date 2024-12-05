@@ -59,6 +59,11 @@ Adafruit_MCP23017 mcp[6]; //Moduli MCP23017
 
 //Timer
 Ticker crono;
+bool sirenaState = false;
+uint64_t sirenaTimeStart = 0;             //Time di start della sirena
+uint64_t sirenaTimer = 0;                 //Timer per la sirena
+const uint16_t sirenaTime = 5000;          //Tempo di attivazione della sirena in ms
+const uint16_t sirenaIntervallTime = 500;  //Tempo di attivazione della sirena in ms
 
 //Power Fail
 long time_s = 0;                          //Cronometro per la routine di salvatggio (Only for humans)
@@ -1002,4 +1007,24 @@ void finishTime() {
   crono.detach();
   timer2p.detach();
   valori.stato  = stop;
+  sirenaState = true;
+  sirenaTimeStart = millis();
+}
+
+
+void handleSirena(){
+  if (sirenaState) {
+    if (millis() - sirenaTimeStart < sirenaTime) {
+      if(millis() - sirenaTimer < sirenaIntervallTime){
+        digitalWrite(SIRENA_PIN, HIGH);
+      }else if( millis() - sirenaTimer < sirenaIntervallTime * 2){
+        digitalWrite(SIRENA_PIN, LOW);
+      }else{
+        sirenaTimer = millis();
+      }
+    }else{
+      sirenaState = false;
+      digitalWrite(SIRENA_PIN, LOW);
+    }
+  }
 }
