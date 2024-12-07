@@ -415,7 +415,7 @@ void evaluateData() {
   bool mode = recv.mode == tabellone ? true : false;
   if (!shift) {
     if (recv.mode == tabellone) {
-      if (recv.val[3] != 0 || recv.val[4] != 0) {
+      if (recv.val[3] != 0 || recv.val[4] != 0 || recv.timerType == cronometro) {
         digitalWrite(startLed, !stato);
       } else {
         digitalWrite(startLed, LOW);
