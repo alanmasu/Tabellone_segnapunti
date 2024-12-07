@@ -903,12 +903,12 @@ void setMode(Mode mode) {
   Serial.printf("Setted mode to %d\n", valori.mode);
 }
 
-void updateDisplays(bool whitValues = true, String val1 = "", String val2 = "") {
+void updateDisplays(bool whitValues = true, String val1 = "", String val2 = "", bool force = false) {
   if(whitValues){
-    if (pt1.read() != valori.val[PUNTI_A]) {
+    if (pt1.read() != valori.val[PUNTI_A] || force) {
       pt1.write(valori.val[PUNTI_A]);
     }
-    if (pt2.read() != valori.val[PUNTI_B]) {
+    if (pt2.read() != valori.val[PUNTI_B] || force) {
       pt2.write(valori.val[PUNTI_B]);
     }
   }else{
@@ -945,7 +945,7 @@ void blinkTimerTypeOnDisplay(){
         updateDisplays(false, "cR", "oN");
       }
     }else if( 1000 < dt && dt <= 2000){
-      updateDisplays();
+      updateDisplays(true, "", "" , true);
     }else if (2000 < dt ){
       changeModeInstant = millis();
       toUpdateStringsOnDisplay = true;
