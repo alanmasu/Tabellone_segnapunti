@@ -64,6 +64,8 @@ uint64_t sirenaTimeStart = 0;             //Time di start della sirena
 uint64_t sirenaTimer = 0;                 //Timer per la sirena
 const uint16_t sirenaTime = 5000;          //Tempo di attivazione della sirena in ms
 const uint16_t sirenaIntervallTime = 500;  //Tempo di attivazione della sirena in ms
+bool cronoResettato = true;
+bool timeFinished = false;
 
 //Power Fail
 long time_s = 0;                          //Cronometro per la routine di salvatggio (Only for humans)
@@ -86,6 +88,19 @@ unsigned long time_c;           //Tempo dall'ultima connessione della pulsantier
 unsigned long time_p;           //Tempo dalla pressione del tasto
 unsigned long timeReflesh = 0;  //Tempo dall'ultimo reflesh dei dati in modalita' veloce
 
+uint32_t changeModeInstant = 0; //Istante di cambio modalità
+uint32_t changeModeInstantSerial = 0; //Istante di cambio modalità
+bool changedMode = false;       //Cambio modalità in corso
+bool changedModeSerial = false;       //Cambio modalità in corso
+const uint8_t changeModeBlinkCount = 3; //Numero di blink per il cambio modalità
+const uint16_t changeModeBlinkTime1 = 3000; //Tempo di blink scritta per il cambio modalità
+const uint16_t changeModeBlinkTime2 = 1000; //Tempo di blink per il cambio modalità
+const uint16_t changeModeBlinkTime3 = changeModeBlinkTime1 + changeModeBlinkTime2; //only for programmer
+uint8_t blynkCounter;           //Contatore per il blink delle scritte
+uint8_t blynkCounterSerial;           //Contatore per il blink delle scritte
+bool firstChangeMode = false;   //Flag per il rilascio del pulsante di cambio modalità
+bool toUpdateStringsOnDisplay = true;
+
 //ESP-NOW
 #ifndef PULSANTEIRA_MAC_ADDRESS
   uint8_t broadcastAddress[] = {0xAC, 0x67, 0xB2, 0x3F, 0x54, 0x9C}; //7c:9e:bd:ee:8b:7c
@@ -101,6 +116,10 @@ RTC_DS3231 Clock;   //Clock di sistema collegato in I2C
 byte minuti;        //Minuti
 byte ore;           //Ore
 bool RTC;           //Stato di configurazione RTC
+
+//Valori finali cronometro
+uint8_t finalMinutesValue;
+uint8_t finalSecondsValue;
 
 // //WiFi
 // char ssid[] = "Tabellone";
@@ -134,6 +153,10 @@ void rsBackup() {
   }
   if( valori.mode != tabellone || valori.mode != orologio){
     valori.mode = tabellone;
+    EEPROMSave();
+  }
+  if(valori.timerType != cronometro || valori.timerType != timer){
+    valori.timerType = cronometro;
     EEPROMSave();
   }
   address += sizeof(valori);
@@ -458,14 +481,32 @@ String getTime() {
 }
 
 void tik() {
-  if (valori.val[CRONO_SEC] == 0) {
-    valori.val[CRONO_SEC] = 59;
-    valori.val[CRONO_MIN] --;
-  } else {
-    valori.val[CRONO_SEC]--;
-  }
-  if (valori.val[CRONO_MIN] == 0 && valori.val[CRONO_SEC] == 0) {
-    finishTime();
+  switch (valori.timerType){
+    case cronometro:
+      if (valori.val[CRONO_SEC] == 59) {
+        valori.val[CRONO_SEC] = 0;
+        valori.val[CRONO_MIN] ++;
+      } else {
+        valori.val[CRONO_SEC] ++;
+      }
+      if(valori.val[CRONO_MIN] == finalMinutesValue && valori.val[CRONO_SEC] == finalSecondsValue){
+        finishTime();
+      }
+      break;
+    case timer:
+      if (valori.val[CRONO_SEC] == 0) {
+        valori.val[CRONO_SEC] = 59;
+        valori.val[CRONO_MIN] --;
+      } else {
+        valori.val[CRONO_SEC]--;
+      }
+      if (valori.val[CRONO_MIN] == 0 && valori.val[CRONO_SEC] == 0) {
+        finishTime();
+      }
+      break;
+    default:
+      valori.timerType = cronometro;
+      break;
   }
 }
 
@@ -498,16 +539,16 @@ void readSerial(String & str) {
 }
 
 void restoreTabMode() {
-  if (valori.modeImpostata  == false && valori.mode == orologio) {
+  if (valori.modeImpostata == false && valori.mode == orologio) {
     valori.mode = tabellone;
-    stateP = HIGH;
     timer2p.detach();
+    stateP = HIGH;
     displayWrite();
-    delay(25);
+    // delay(25);
   }
 }
 
-void handleTabelloneMode(int button){
+static void handleTabelloneMode(int button){
   switch (button) {
     case BTN_PUNTI_A_PIU:
       valori.val[PUNTI_A] = valori.val[PUNTI_A] == 199 ? 0 : valori.val[PUNTI_A] + 1;
@@ -561,15 +602,34 @@ void handleTabelloneMode(int button){
       }
       break;
     case BTN_CRONO_R:
-      if (valori.stato  == stop) {
+      if (valori.stato == stop) {
         valori.val[CRONO_MIN] = 0;
         valori.val[CRONO_SEC] = 0;
+        cronoResettato = true;
       }
       break;
     case BTN_PLAY://P
-      if (valori.val[CRONO_MIN] != 0 || valori.val[CRONO_SEC] != 0) {
+      if (valori.val[CRONO_MIN] != 0 || valori.val[CRONO_SEC] != 0 || valori.timerType == cronometro) {
+        if(valori.timerType == cronometro && valori.stato != run){
+          if(cronoResettato){
+            if(valori.val[CRONO_SEC] || valori.val[CRONO_MIN]){  //Se il cronometro non segna 0:00 salva i valori finali
+              finalMinutesValue = valori.val[CRONO_MIN];
+              finalSecondsValue = valori.val[CRONO_SEC];
+            }
+            valori.val[CRONO_MIN] = 0;
+            valori.val[CRONO_SEC] = 0;
+            cronoResettato = false;
+            timeFinished = false;
+          }else if (timeFinished){
+            valori.val[CRONO_MIN] = 0;
+            valori.val[CRONO_SEC] = 0;
+            cronoResettato = false;
+            timeFinished = false;
+          }
+        }
         crono.attach(1, tik);
         timer2p.attach(0.5, duePunti);
+        Serial.println(cronoResettato);
         valori.stato = run;
       }
       break;
@@ -584,11 +644,12 @@ void handleTabelloneMode(int button){
         for (byte i = 0; i < 9; i++) {
           valori.val[i] = 0;
         }
+        cronoResettato = true;
       }
       break;
   }
 }
-void handleTabelloneWhitShiftPressed(int button){
+static void handleTabelloneWhitShiftPressed(int button){
   switch (button) {
     case BTN_PUNTI_A_PIU: //Falli 1
       valori.val[FALLI_A] = valori.val[FALLI_A] == 5 ? 0 : valori.val[FALLI_A] + 1;
@@ -677,7 +738,7 @@ void handleTabelloneWhitShiftPressed(int button){
       break;
   }
 }
-void handleTabelloneWhitContinuosPress(int button){
+static void handleTabelloneWhitContinuosPress(int button){
   switch (button) {
     case BTN_PUNTI_A_PIU:
       valori.val[PUNTI_A] = (valori.val[PUNTI_A] + 5) >= 199 ? 0 : valori.val[PUNTI_A] + 5;
@@ -715,7 +776,29 @@ void handleTabelloneWhitContinuosPress(int button){
       break;
   }
 }
-void handleOrologioMode(int button){
+
+static void handleTabelloneWithContinuosPressShifted(uint8_t i){
+  if (comandi.state[BTN_CRONO_R]){           //Se è premuto il tasto di cambio modalita' (SHIFT + RESET CRONO)
+    if(valori.stato == stop && firstChangeMode == false){
+      firstChangeMode = true;
+      changedMode = true;
+      changedModeSerial = true;
+      blynkCounter = 0;
+      blynkCounterSerial = 0;
+      changeModeInstant = millis();
+      changeModeInstantSerial = millis();
+      if(valori.timerType == timer){
+        valori.timerType = cronometro;
+      }else if (valori.timerType == cronometro){
+        valori.timerType = timer;
+      }
+    }
+  }else{
+    firstChangeMode = false;
+  }
+}
+
+static void handleOrologioMode(int button){
   switch (button) {
     case BTN_CRONO_MIN_PIU:
       ore = ore >= 24 ? 0 : ore + 1;
@@ -744,7 +827,7 @@ void handleOrologioMode(int button){
       break;
   }
 }
-void handleOrologioWhitContinuosPress(int button){
+static void handleOrologioWhitContinuosPress(int button){
   switch (button) {
     case BTN_CRONO_MIN_PIU:
       ore = ore + 2 >= 24 ? 0 : ore + 2;
@@ -794,14 +877,16 @@ void mainProcess() {
             handleOrologioMode(i);
           }
         }
-      } else {
+      } else {  //Avanzamento veloce
         if (millis() - time_p > 1000 && millis() - timeReflesh > 1000) {   // PASSATI 1 SECONDI DALLA PRESSIONE SI SALE DI 5 ALLA VOLTA ongi secondo
-          if (valori.mode == tabellone) {         // Modalità tabellone
+          if (valori.mode == tabellone) {           // Modalità tabellone
             if (isOTAcmd && valori.stato != run) {
               enteringOtaMode();
               valori.mode = OTA;
-            } else if (comandi.state[BTN_SHIFT] == 0) {  // Shift non premuto in mod tabellone
+            } else if (comandi.state[BTN_SHIFT] == 0) {   // Shift non premuto in mod tabellone
               handleTabelloneWhitContinuosPress(i);
+            } else if (comandi.state[BTN_SHIFT] == 1){    // Shift premuto in mod tabellone
+              handleTabelloneWithContinuosPressShifted(i);
             }
           } else if (valori.mode == orologio) {     //Modalità orologio
             if (RTC) {
@@ -818,6 +903,9 @@ void mainProcess() {
         }
       }
     }
+  }
+  if (!comandi.state[BTN_CRONO_R] && firstChangeMode == true){
+    firstChangeMode = false;
   }
   for (byte i = 0; i < 17; i++) {
     comandi_p.state[i] = comandi.state[i];
@@ -851,12 +939,20 @@ void setMode(Mode mode) {
   Serial.printf("Setted mode to %d\n", valori.mode);
 }
 
-void displayPrint() {
-  if (pt1.read() != valori.val[PUNTI_A]) {
-    pt1.write(valori.val[PUNTI_A]);
-  }
-  if (pt2.read() != valori.val[PUNTI_B]) {
-    pt2.write(valori.val[PUNTI_B]);
+void updateDisplays(bool whitValues = true, String val1 = "", String val2 = "", bool force = false) {
+  if(whitValues){
+    if (pt1.read() != valori.val[PUNTI_A] || force) {
+      pt1.write(valori.val[PUNTI_A]);
+    }
+    if (pt2.read() != valori.val[PUNTI_B] || force) {
+      pt2.write(valori.val[PUNTI_B]);
+    }
+  }else{
+    if(toUpdateStringsOnDisplay){
+      pt1.print(val1);
+      pt2.print(val2);
+      toUpdateStringsOnDisplay = false;
+    }
   }
   if (periodo.read() != valori.val[PERIODO]) {
     periodo.write(valori.val[PERIODO]);
@@ -872,6 +968,37 @@ void displayPrint() {
   }
   if (falli2.read() != valori.val[FALLI_B]) {
     falli2.write(valori.val[FALLI_B]);
+  }
+}
+
+void blinkTimerTypeOnDisplay(){
+  uint32_t dt = millis() - changeModeInstant;
+  if(blynkCounter < changeModeBlinkCount){
+    if (dt <= changeModeBlinkTime1){
+      if (valori.timerType == timer){
+        updateDisplays(false, "ti", "ME");
+      }else if(valori.timerType == cronometro){
+        updateDisplays(false, "cR", "oN");
+      }
+    }else if( changeModeBlinkTime2 < dt && dt <= changeModeBlinkTime3){
+      updateDisplays(true, "", "" , true);
+    }else if (changeModeBlinkTime3 < dt ){
+      changeModeInstant = millis();
+      toUpdateStringsOnDisplay = true;
+      ++blynkCounter;
+    }
+  }else{
+    changedMode = false;
+    blynkCounter = 0;
+    toUpdateStringsOnDisplay = true;
+  }
+}
+
+void displayPrint() {
+  if(!changedMode){
+    updateDisplays();
+  }else{
+    blinkTimerTypeOnDisplay();
   }
 }
 
@@ -922,13 +1049,57 @@ void timeOutWrite() {
   }
 }
 
-void displayPrintOnSerial() {
+void displayPrintOnSerial() { 
   String toSendSerial = "";
-  for (int i = 0; i < 8; i++) {
-    toSendSerial += String(valori.val[i]) + ".";
+  if(!changedModeSerial){ //Se non è cambiata la modalità
+    for (int i = 0; i < 8; i++) {
+      toSendSerial += String(valori.val[i]) + ".";
+    }
+    toSendSerial += String(valori.val[TIMEOUT_B]);
+    Serial.println(toSendSerial);
+  }else{            //Se è cambiata la modalità
+    uint32_t dt = millis() - changeModeInstantSerial;
+    //Calcolo la modalità 
+    String mode[2];
+    if(valori.timerType == timer){
+      mode[0] = "ti";
+      mode[1] = "ME";
+    }else if (valori.timerType == cronometro){
+      mode[0] = "cR";
+      mode[1] = "oN";
+    }
+    if(blynkCounterSerial < 10){
+      if (dt <= 1000){                 
+        for (int i = 0; i < 8; i++) {
+          switch (i){
+            case 0:
+            case 1:
+              toSendSerial += String(mode[i]) + ".";
+              break;
+            default:
+              toSendSerial += String(valori.val[i]) + ".";
+              break;
+          }
+        }
+        toSendSerial += String(valori.val[TIMEOUT_B]);
+      }else if (1000 < dt && dt <= 2000){
+        for (int i = 0; i < 8; i++) {
+          toSendSerial += String(valori.val[i]) + ".";
+        }
+        toSendSerial += String(valori.val[TIMEOUT_B]);
+      }else if(2000 < dt ){
+        changeModeInstantSerial = millis();
+        ++blynkCounterSerial;
+        Serial.println(blynkCounterSerial);
+      }
+      if(toSendSerial != ""){
+        Serial.println(toSendSerial);
+      }
+    }else{
+      changedModeSerial = false;
+      blynkCounterSerial = 0;
+    }
   }
-  toSendSerial += String(valori.val[TIMEOUT_B]);
-  Serial.println(toSendSerial);
 }
 
 void oraPrint() {
@@ -1004,6 +1175,7 @@ void duePuntiWrite() {
 void finishTime() {
   //All'evento tempo finito esegui:
   stateP = true;
+  timeFinished = true;
   crono.detach();
   timer2p.detach();
   valori.stato  = stop;
