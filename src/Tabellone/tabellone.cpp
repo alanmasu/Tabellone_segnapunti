@@ -87,6 +87,10 @@ uint32_t changeModeInstant = 0; //Istante di cambio modalità
 uint32_t changeModeInstantSerial = 0; //Istante di cambio modalità
 bool changedMode = false;       //Cambio modalità in corso
 bool changedModeSerial = false;       //Cambio modalità in corso
+const uint8_t changeModeBlinkCount = 3; //Numero di blink per il cambio modalità
+const uint16_t changeModeBlinkTime1 = 3000; //Tempo di blink scritta per il cambio modalità
+const uint16_t changeModeBlinkTime2 = 1000; //Tempo di blink per il cambio modalità
+const uint16_t changeModeBlinkTime3 = changeModeBlinkTime1 + changeModeBlinkTime2; //only for programmer
 uint8_t blynkCounter;           //Contatore per il blink delle scritte
 uint8_t blynkCounterSerial;           //Contatore per il blink delle scritte
 bool firstChangeMode = false;   //Flag per il rilascio del pulsante di cambio modalità
@@ -953,16 +957,16 @@ void updateDisplays(bool whitValues = true, String val1 = "", String val2 = "", 
 
 void blinkTimerTypeOnDisplay(){
   uint32_t dt = millis() - changeModeInstant;
-  if(blynkCounter < 10){
-    if (dt <= 1000){
+  if(blynkCounter < changeModeBlinkCount){
+    if (dt <= changeModeBlinkTime1){
       if (valori.timerType == timer){
         updateDisplays(false, "ti", "ME");
       }else if(valori.timerType == cronometro){
         updateDisplays(false, "cR", "oN");
       }
-    }else if( 1000 < dt && dt <= 2000){
+    }else if( changeModeBlinkTime2 < dt && dt <= changeModeBlinkTime3){
       updateDisplays(true, "", "" , true);
-    }else if (2000 < dt ){
+    }else if (changeModeBlinkTime3 < dt ){
       changeModeInstant = millis();
       toUpdateStringsOnDisplay = true;
       ++blynkCounter;
