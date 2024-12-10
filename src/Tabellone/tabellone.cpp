@@ -473,8 +473,10 @@ void tik() {
       } else {
         valori.val[CRONO_SEC] ++;
       }
-      if(valori.val[CRONO_MIN] == finalMinutesValue && valori.val[CRONO_SEC] == finalSecondsValue){
-        finishTime();
+      if(valori.val[CRONO_MIN] != 0 || valori.val[CRONO_SEC] != 0){
+        if(valori.val[CRONO_MIN] == finalMinutesValue && valori.val[CRONO_SEC] == finalSecondsValue){
+          finishTime();
+        }
       }
       break;
     case timer:
@@ -590,6 +592,8 @@ static void handleTabelloneMode(int button){
         valori.val[CRONO_MIN] = 0;
         valori.val[CRONO_SEC] = 0;
         cronoResettato = true;
+        finalMinutesValue = 0;
+        finalSecondsValue = 0;
       }
       break;
     case BTN_PLAY://P
@@ -629,6 +633,8 @@ static void handleTabelloneMode(int button){
           valori.val[i] = 0;
         }
         cronoResettato = true;
+        finalMinutesValue = 0;
+        finalSecondsValue = 0;
       }
       break;
   }
@@ -696,6 +702,8 @@ static void handleTabelloneWhitShiftPressed(int button){
       if (valori.stato  == stop) {
         valori.val[TIMEOUT_A] = 0;
         valori.val[TIMEOUT_B] = 0;
+        finalMinutesValue = 0;
+        finalSecondsValue = 0;
       }
       break;
     case BTN_PLAY://Orologio
@@ -718,6 +726,8 @@ static void handleTabelloneWhitShiftPressed(int button){
         for (byte i = 0; i < 9; i++) {
           valori.val[i] = 0;
         }
+        finalMinutesValue = 0;
+        finalSecondsValue = 0;
       }
       break;
   }
