@@ -545,6 +545,7 @@ void restoreTabMode() {
     stateP = HIGH;
     displayWrite();
     // delay(25);
+    Serial.println("Modalita' tabellone ripristinata");
   }
 }
 
@@ -821,8 +822,8 @@ static void handleOrologioMode(int button){
       Serial.println("STOP + SHIFT IN OROLOGIO");
       stateP = true;
       valori.modeImpostata = false;
-      // timer2p.detach();
-      // displayWrite();
+      timer2p.detach();
+      displayWrite();
       displayPrintOnSerial();
       break;
   }
@@ -848,8 +849,8 @@ static void handleOrologioWhitContinuosPress(int button){
     case BTN_STOP://S
       valori.mode = tabellone;
       Serial.println("STOP + SHIFT IN OROLOGIO");
-      // timer2p.detach();
-      // displayWrite();
+      timer2p.detach();
+      displayWrite();
       displayPrintOnSerial();
       break;
   }
@@ -862,18 +863,18 @@ void mainProcess() {
       if (comandi.state[i] != comandi_p.state[i]) {
         time_p = millis();
         if (valori.mode == tabellone) {
-          if (comandi.state[BTN_SHIFT] == 0) {//Shift non premuto in mod tab
+          if (comandi.state[BTN_SHIFT] == 0) {  //Shift non premuto in mod tab
             handleTabelloneMode(i);
-          } else { //Shift Premuto in mod. tab
+          } else {                              //Shift Premuto in mod. tab
             handleTabelloneWhitShiftPressed(i);
           }
-        } else if (valori.mode == orologio) { //Modalità orologio
+        } else if (valori.mode == orologio) {   //Modalità orologio
           if (RTC) {
             DateTime now = Clock.now();
             minuti = now.minute();
             ore = now.hour();
           }
-          if (comandi.state[BTN_SHIFT] == 1) { //Shift premuto in mod Orologio
+          if (comandi.state[BTN_SHIFT] == 1) {  //Shift premuto in mod Orologio
             handleOrologioMode(i);
           }
         }
