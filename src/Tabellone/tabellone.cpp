@@ -1052,8 +1052,8 @@ void displayPrintOnSerial() {
       mode[0] = "cR";
       mode[1] = "oN";
     }
-    if(blynkCounterSerial < 10){
-      if (dt <= 1000){                 
+    if(blynkCounterSerial < changeModeBlinkCount){
+      if (dt <= changeModeBlinkTime1){                 
         for (int i = 0; i < 8; i++) {
           switch (i){
             case 0:
@@ -1066,12 +1066,12 @@ void displayPrintOnSerial() {
           }
         }
         toSendSerial += String(valori.val[TIMEOUT_B]);
-      }else if (1000 < dt && dt <= 2000){
+      }else if (changeModeBlinkTime2 < dt && dt <= changeModeBlinkTime3){
         for (int i = 0; i < 8; i++) {
           toSendSerial += String(valori.val[i]) + ".";
         }
         toSendSerial += String(valori.val[TIMEOUT_B]);
-      }else if(2000 < dt ){
+      }else if(changeModeBlinkTime3 < dt ){
         changeModeInstantSerial = millis();
         ++blynkCounterSerial;
         Serial.println(blynkCounterSerial);
